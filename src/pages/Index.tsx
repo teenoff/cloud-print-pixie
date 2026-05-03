@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Upload, Store, QrCode, CheckCircle2, Printer, FileText, ArrowRight, ArrowLeft } from "lucide-react";
+import { Upload, Store, QrCode, CheckCircle2, Printer, FileText, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 type Step = "upload" | "store" | "pay" | "done";
 
@@ -11,11 +12,61 @@ const Index = () => {
   const [step, setStep] = useState<Step>("upload");
   const [file, setFile] = useState<File | null>(null);
   const [storeUid, setStoreUid] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
 
   const reset = () => {
     setStep("upload");
     setFile(null);
     setStoreUid("");
+    setOrderId(null);
+    setFileUrl(null);
+  };
+
+  const handleSubmitOrder = async () => {
+    if (!file) return;
+    const uid = storeUid.trim().toUpperCase();
+    if (uid.length < 3) return;
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("File too large (max 20MB)");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "pdf";
+      const path = `${uid}/${crypto.randomUUID()}.${ext}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("print-files")
+        .upload(path, file, { contentType: file.type || "application/pdf" });
+      if (upErr) throw upErr;
+
+      const { data: pub } = supabase.storage.from("print-files").getPublicUrl(path);
+
+      const { data: order, error: insErr } = await supabase
+        .from("orders")
+        .insert({
+          store_uid: uid,
+          file_url: pub.publicUrl,
+          file_name: file.name,
+          file_size: file.size,
+        })
+        .select()
+        .single();
+      if (insErr) throw insErr;
+
+      setOrderId(order.id);
+      setFileUrl(pub.publicUrl);
+      setStep("pay");
+      toast.success("File uploaded");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const steps: { key: Step; label: string }[] = [
