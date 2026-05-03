@@ -21,6 +21,8 @@ export type Database = {
           file_size: number
           file_url: string
           id: string
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
           status: string
           store_uid: string
           user_id: string
@@ -31,6 +33,8 @@ export type Database = {
           file_size: number
           file_url: string
           id?: string
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
           status?: string
           store_uid: string
           user_id: string
@@ -41,6 +45,8 @@ export type Database = {
           file_size?: number
           file_url?: string
           id?: string
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
           status?: string
           store_uid?: string
           user_id?: string
