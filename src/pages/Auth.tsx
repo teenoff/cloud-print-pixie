@@ -15,8 +15,8 @@ const Auth = () => {
     if (!loading && user) navigate("/", { replace: true });
   }, [user, loading, navigate]);
 
-  const signIn = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
+  const signIn = async (provider: "google" | "apple") => {
+    const result = await lovable.auth.signInWithOAuth(provider, {
       redirect_uri: window.location.origin,
     });
     if (result.error) {
