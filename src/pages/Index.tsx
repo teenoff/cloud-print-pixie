@@ -1,20 +1,28 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Upload, Store, QrCode, CheckCircle2, Printer, FileText, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { Upload, Store, QrCode, CheckCircle2, Printer, FileText, ArrowRight, ArrowLeft, Loader2, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 type Step = "upload" | "store" | "pay" | "done";
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [step, setStep] = useState<Step>("upload");
   const [file, setFile] = useState<File | null>(null);
   const [storeUid, setStoreUid] = useState("");
   const [uploading, setUploading] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && !user) navigate("/auth", { replace: true });
+  }, [authLoading, user, navigate]);
 
   const reset = () => {
     setStep("upload");
@@ -25,7 +33,7 @@ const Index = () => {
   };
 
   const handleSubmitOrder = async () => {
-    if (!file) return;
+    if (!file || !user) return;
     const uid = storeUid.trim().toUpperCase();
     if (uid.length < 3) return;
     if (file.size > 20 * 1024 * 1024) {
@@ -36,29 +44,35 @@ const Index = () => {
     setUploading(true);
     try {
       const ext = file.name.split(".").pop() || "pdf";
-      const path = `${uid}/${crypto.randomUUID()}.${ext}`;
+      // Path is scoped by user id so storage RLS allows the upload/read
+      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
 
       const { error: upErr } = await supabase.storage
         .from("print-files")
         .upload(path, file, { contentType: file.type || "application/pdf" });
       if (upErr) throw upErr;
 
-      const { data: pub } = supabase.storage.from("print-files").getPublicUrl(path);
+      // Signed URL (valid 1 hour) instead of public URL
+      const { data: signed, error: signErr } = await supabase.storage
+        .from("print-files")
+        .createSignedUrl(path, 60 * 60);
+      if (signErr) throw signErr;
 
       const { data: order, error: insErr } = await supabase
         .from("orders")
         .insert({
           store_uid: uid,
-          file_url: pub.publicUrl,
+          file_url: path,
           file_name: file.name,
           file_size: file.size,
+          user_id: user.id,
         })
         .select()
         .single();
       if (insErr) throw insErr;
 
       setOrderId(order.id);
-      setFileUrl(pub.publicUrl);
+      setFileUrl(signed.signedUrl);
       setStep("pay");
       toast.success("File uploaded");
     } catch (e: any) {
@@ -67,6 +81,11 @@ const Index = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth", { replace: true });
   };
 
   const steps: { key: Step; label: string }[] = [
@@ -86,9 +105,14 @@ const Index = () => {
             <div className="size-9 rounded-xl bg-gradient-to-br from-primary to-accent grid place-items-center glow">
               <Printer className="size-5 text-primary-foreground" />
             </div>
-            <span className="font-semibold tracking-tight text-lg">PrintBeam</span>
+          <span className="font-semibold tracking-tight text-lg">PrintBeam</span>
           </div>
-          <span className="text-xs text-muted-foreground hidden sm:block">Print anywhere, instantly.</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[160px]">{user?.email}</span>
+            <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5">
+              <LogOut className="size-4" /> <span className="hidden sm:inline">Sign out</span>
+            </Button>
+          </div>
         </div>
       </header>
 
