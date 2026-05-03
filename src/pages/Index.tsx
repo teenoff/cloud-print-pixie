@@ -202,10 +202,14 @@ const Index = () => {
                 </Button>
                 <Button
                   className="flex-1 h-12"
-                  disabled={storeUid.trim().length < 3}
-                  onClick={() => setStep("pay")}
+                  disabled={storeUid.trim().length < 3 || uploading}
+                  onClick={handleSubmitOrder}
                 >
-                  Generate Payment QR <ArrowRight className="size-4" />
+                  {uploading ? (
+                    <><Loader2 className="size-4 animate-spin" /> Uploading…</>
+                  ) : (
+                    <>Upload & Generate QR <ArrowRight className="size-4" /></>
+                  )}
                 </Button>
               </div>
             </div>
