@@ -267,10 +267,18 @@ const Index = () => {
                   Pick it up at the counter.
                 </p>
               </div>
-              <div className="rounded-xl bg-secondary/60 p-4 text-left text-sm space-y-1">
-                <div className="flex justify-between"><span className="text-muted-foreground">File</span><span className="font-medium truncate ml-4">{file?.name}</span></div>
+              <div className="rounded-xl bg-secondary/60 p-4 text-left text-sm space-y-2">
+                <div className="flex justify-between gap-4"><span className="text-muted-foreground">File</span><span className="font-medium truncate">{file?.name}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Store</span><span className="font-mono">{storeUid}</span></div>
+                {orderId && (
+                  <div className="flex justify-between gap-4"><span className="text-muted-foreground">Order</span><span className="font-mono text-xs truncate">{orderId.slice(0, 8)}</span></div>
+                )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className="text-primary font-medium">Printing</span></div>
+                {fileUrl && (
+                  <a href={fileUrl} target="_blank" rel="noreferrer" className="block text-xs text-primary hover:underline pt-2 break-all">
+                    View uploaded file ↗
+                  </a>
+                )}
               </div>
               <Button className="w-full h-12" onClick={reset}>Print another</Button>
             </div>
@@ -278,7 +286,7 @@ const Index = () => {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
-          Frontend MVP · Add Lovable Cloud later for real uploads, payments & print agent.
+          Files are stored in Lovable Cloud · Payment & auto-print coming next.
         </p>
       </main>
     </div>
