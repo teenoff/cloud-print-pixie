@@ -15,8 +15,8 @@ const Auth = () => {
     if (!loading && user) navigate("/", { replace: true });
   }, [user, loading, navigate]);
 
-  const signIn = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
+  const signIn = async (provider: "google" | "apple") => {
+    const result = await lovable.auth.signInWithOAuth(provider, {
       redirect_uri: window.location.origin,
     });
     if (result.error) {
@@ -37,8 +37,11 @@ const Auth = () => {
           <h1 className="text-2xl font-semibold tracking-tight">Welcome to PrintBeam</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in to upload and print.</p>
         </div>
-        <Button className="w-full h-12" onClick={signIn}>
+        <Button className="w-full h-12" onClick={() => signIn("google")}>
           Continue with Google
+        </Button>
+        <Button variant="outline" className="w-full h-12" onClick={() => signIn("apple")}>
+          Continue with Apple
         </Button>
       </Card>
     </div>
