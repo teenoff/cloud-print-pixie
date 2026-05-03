@@ -37,8 +37,11 @@ const Auth = () => {
           <h1 className="text-2xl font-semibold tracking-tight">Welcome to PrintBeam</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in to upload and print.</p>
         </div>
-        <Button className="w-full h-12" onClick={signIn}>
+        <Button className="w-full h-12" onClick={() => signIn("google")}>
           Continue with Google
+        </Button>
+        <Button variant="outline" className="w-full h-12" onClick={() => signIn("apple")}>
+          Continue with Apple
         </Button>
       </Card>
     </div>
