@@ -268,12 +268,35 @@ const Index = () => {
                 </Button>
                 <Button
                   className="flex-1 h-12"
-                  onClick={() => {
-                    toast.success("Payment confirmed — sending to printer");
-                    setStep("done");
+                  disabled={uploading}
+                  onClick={async () => {
+                    if (!orderId) return;
+                    setUploading(true);
+                    try {
+                      const { data, error } = await supabase
+                        .from("orders")
+                        .select("status")
+                        .eq("id", orderId)
+                        .maybeSingle();
+                      if (error) throw error;
+                      if (data?.status === "paid") {
+                        toast.success("Payment confirmed — sending to printer");
+                        setStep("done");
+                      } else {
+                        toast.error("Payment not confirmed yet. Please complete payment.");
+                      }
+                    } catch (e: any) {
+                      toast.error(e.message ?? "Could not verify payment");
+                    } finally {
+                      setUploading(false);
+                    }
                   }}
                 >
-                  I've paid <CheckCircle2 className="size-4" />
+                  {uploading ? (
+                    <><Loader2 className="size-4 animate-spin" /> Checking…</>
+                  ) : (
+                    <>I've paid <CheckCircle2 className="size-4" /></>
+                  )}
                 </Button>
               </div>
             </div>
