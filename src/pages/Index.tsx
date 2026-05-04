@@ -414,24 +414,43 @@ const Index = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-xs uppercase tracking-wider text-muted-foreground">Store UID</label>
-                <div className="relative">
-                  <Store className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                  <Input
-                    value={storeUid}
-                    onChange={(e) => setStoreUid(e.target.value.toUpperCase())}
-                    placeholder="e.g. PB-1024"
-                    className="pl-9 h-12 font-mono tracking-wider"
-                    maxLength={20}
-                  />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Store className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input
+                      value={storeUid}
+                      onChange={(e) => { setStoreUid(e.target.value.toUpperCase()); setStoreInfo(null); }}
+                      placeholder="e.g. CR-91852218"
+                      className="pl-9 h-12 font-mono tracking-wider"
+                      maxLength={20}
+                    />
+                  </div>
+                  <Button variant="secondary" className="h-12" onClick={lookupStore} disabled={lookingUp || storeUid.trim().length < 3}>
+                    {lookingUp ? <Loader2 className="size-4 animate-spin" /> : "Find"}
+                  </Button>
                 </div>
               </div>
+              {storeInfo && (
+                <div className="rounded-xl border border-primary/40 bg-primary/10 p-4 space-y-2">
+                  <div className="font-semibold">{storeInfo.name}</div>
+                  {storeMapsUrl && (
+                    <a href={storeMapsUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                      <MapPin className="size-4" />
+                      <span className="truncate">{[storeInfo.address_line, storeInfo.city].filter(Boolean).join(", ") || "Get directions"}</span>
+                    </a>
+                  )}
+                  <div className="text-xs text-muted-foreground">
+                    B&W ₹{storeInfo.bw_price} · Color ₹{storeInfo.color_price} · Pin ₹{storeInfo.one_pin_price} · Tape ₹{storeInfo.tape_price} · Spiral ₹{storeInfo.spiral_price}
+                  </div>
+                </div>
+              )}
               <div className="flex gap-3">
                 <Button variant="secondary" className="h-12" onClick={() => setStep("options")}>
                   <ArrowLeft className="size-4" />
                 </Button>
                 <Button
                   className="flex-1 h-12"
-                  disabled={storeUid.trim().length < 3 || uploading}
+                  disabled={!storeInfo || uploading}
                   onClick={handleSubmitOrder}
                 >
                   {uploading ? (
