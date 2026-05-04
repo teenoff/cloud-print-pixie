@@ -472,16 +472,22 @@ const Index = () => {
                 </p>
               </div>
               <div className="flex justify-center">
-                <div className="p-6 bg-foreground rounded-2xl">
-                  <div className="size-56 grid place-items-center bg-background rounded-lg relative overflow-hidden">
-                    <QrCode className="size-48 text-foreground" strokeWidth={1} />
-                    <div className="absolute inset-0 grid place-items-center">
-                      <div className="size-12 rounded-lg bg-gradient-to-br from-primary to-accent grid place-items-center glow">
-                        <Printer className="size-6 text-primary-foreground" />
+                {storeQrUrl ? (
+                  <div className="p-4 bg-foreground rounded-2xl">
+                    <img src={storeQrUrl} alt="Store payment QR" className="size-56 rounded-lg bg-background object-contain" />
+                  </div>
+                ) : (
+                  <div className="p-6 bg-foreground rounded-2xl">
+                    <div className="size-56 grid place-items-center bg-background rounded-lg relative overflow-hidden">
+                      <QrCode className="size-48 text-foreground" strokeWidth={1} />
+                      <div className="absolute inset-0 grid place-items-center">
+                        <div className="size-12 rounded-lg bg-gradient-to-br from-primary to-accent grid place-items-center glow">
+                          <Printer className="size-6 text-primary-foreground" />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="rounded-xl bg-secondary/40 p-4 text-sm space-y-1.5">
