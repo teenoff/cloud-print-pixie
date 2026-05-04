@@ -1,14 +1,28 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Upload, Store, QrCode, CheckCircle2, Printer, FileText, ArrowRight, ArrowLeft, Loader2, LogOut } from "lucide-react";
+import {
+  Upload, Store, QrCode, CheckCircle2, Printer, FileText,
+  ArrowRight, ArrowLeft, Loader2, LogOut, Minus, Plus, Settings2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-type Step = "upload" | "store" | "pay" | "done";
+type Step = "upload" | "options" | "store" | "pay" | "done";
+type Binding = "one_pin" | "tape" | "spiral";
+type ColorMode = "bw" | "color";
+
+const BINDING_PRICE: Record<Binding, number> = { one_pin: 2, tape: 15, spiral: 30 };
+const COLOR_PRICE: Record<ColorMode, number> = { bw: 2, color: 10 };
+const BINDING_LABEL: Record<Binding, string> = {
+  one_pin: "One pin",
+  tape: "Tape binding",
+  spiral: "Spiral binding",
+};
+const COLOR_LABEL: Record<ColorMode, string> = { bw: "Black & white", color: "Color" };
 
 const Index = () => {
   const navigate = useNavigate();
@@ -20,6 +34,17 @@ const Index = () => {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
 
+  // Print options
+  const [binding, setBinding] = useState<Binding>("one_pin");
+  const [colorMode, setColorMode] = useState<ColorMode>("bw");
+  const [copies, setCopies] = useState<number>(1);
+
+  const totalRupees = useMemo(
+    () => (COLOR_PRICE[colorMode] + BINDING_PRICE[binding]) * copies,
+    [binding, colorMode, copies],
+  );
+  const amountPaise = totalRupees * 100;
+
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth", { replace: true });
   }, [authLoading, user, navigate]);
@@ -30,6 +55,9 @@ const Index = () => {
     setStoreUid("");
     setOrderId(null);
     setFileUrl(null);
+    setBinding("one_pin");
+    setColorMode("bw");
+    setCopies(1);
   };
 
   const handleSubmitOrder = async () => {
@@ -44,7 +72,6 @@ const Index = () => {
     setUploading(true);
     try {
       const ext = file.name.split(".").pop() || "pdf";
-      // Path is scoped by user id so storage RLS allows the upload/read
       const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
 
       const { error: upErr } = await supabase.storage
@@ -52,7 +79,6 @@ const Index = () => {
         .upload(path, file, { contentType: file.type || "application/pdf" });
       if (upErr) throw upErr;
 
-      // Signed URL (valid 1 hour) instead of public URL
       const { data: signed, error: signErr } = await supabase.storage
         .from("print-files")
         .createSignedUrl(path, 60 * 60);
@@ -66,6 +92,10 @@ const Index = () => {
           file_name: file.name,
           file_size: file.size,
           user_id: user.id,
+          binding,
+          color_mode: colorMode,
+          copies,
+          amount_paise: amountPaise,
         })
         .select()
         .single();
@@ -90,11 +120,17 @@ const Index = () => {
 
   const steps: { key: Step; label: string }[] = [
     { key: "upload", label: "Upload" },
+    { key: "options", label: "Options" },
     { key: "store", label: "Store" },
     { key: "pay", label: "Pay" },
     { key: "done", label: "Print" },
   ];
   const stepIdx = steps.findIndex((s) => s.key === step);
+
+  const setCopiesSafe = (n: number) => {
+    if (Number.isNaN(n)) return;
+    setCopies(Math.min(120, Math.max(1, Math.floor(n))));
+  };
 
   return (
     <div className="min-h-screen">
@@ -105,7 +141,7 @@ const Index = () => {
             <div className="size-9 rounded-xl bg-gradient-to-br from-primary to-accent grid place-items-center glow">
               <Printer className="size-5 text-primary-foreground" />
             </div>
-          <span className="font-semibold tracking-tight text-lg">PrintBeam</span>
+            <span className="font-semibold tracking-tight text-lg">PrintBeam</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[160px]">{user?.email}</span>
@@ -127,7 +163,7 @@ const Index = () => {
             Print to <span className="text-gradient-primary">any store</span><br />in seconds.
           </h1>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Upload your PDF, pick a store, scan to pay. Your document prints automatically.
+            Upload your PDF, pick options, scan to pay. Your document prints automatically.
           </p>
         </div>
 
@@ -194,10 +230,128 @@ const Index = () => {
               <Button
                 className="w-full h-12"
                 disabled={!file}
-                onClick={() => setStep("store")}
+                onClick={() => setStep("options")}
               >
                 Continue <ArrowRight className="size-4" />
               </Button>
+            </div>
+          )}
+
+          {step === "options" && (
+            <div className="space-y-7">
+              <div>
+                <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
+                  <Settings2 className="size-5 text-primary" /> Print options
+                </h2>
+                <p className="text-sm text-muted-foreground">Choose how you want it printed.</p>
+              </div>
+
+              {/* Binding */}
+              <div className="space-y-3">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Binding</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(Object.keys(BINDING_PRICE) as Binding[]).map((b) => {
+                    const active = binding === b;
+                    return (
+                      <button
+                        key={b}
+                        type="button"
+                        onClick={() => setBinding(b)}
+                        className={`rounded-xl border p-3 text-left transition-all ${
+                          active
+                            ? "border-primary bg-primary/10 glow"
+                            : "border-border bg-card hover:border-primary/40"
+                        }`}
+                      >
+                        <div className="text-sm font-medium">{BINDING_LABEL[b]}</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">+ ₹{BINDING_PRICE[b]}/copy</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Color */}
+              <div className="space-y-3">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Color</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(Object.keys(COLOR_PRICE) as ColorMode[]).map((c) => {
+                    const active = colorMode === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setColorMode(c)}
+                        className={`rounded-xl border p-3 text-left transition-all ${
+                          active
+                            ? "border-primary bg-primary/10 glow"
+                            : "border-border bg-card hover:border-primary/40"
+                        }`}
+                      >
+                        <div className="text-sm font-medium">{COLOR_LABEL[c]}</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">₹{COLOR_PRICE[c]}/copy</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Copies */}
+              <div className="space-y-3">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Number of copies</label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="h-12 w-12"
+                    onClick={() => setCopiesSafe(copies - 1)}
+                    disabled={copies <= 1}
+                  >
+                    <Minus className="size-4" />
+                  </Button>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={120}
+                    value={copies}
+                    onChange={(e) => setCopiesSafe(parseInt(e.target.value, 10))}
+                    className="h-12 text-center font-mono text-lg"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="h-12 w-12"
+                    onClick={() => setCopiesSafe(copies + 1)}
+                    disabled={copies >= 120}
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Min 1 · Max 120</p>
+              </div>
+
+              {/* Total */}
+              <div className="rounded-xl border border-border/60 bg-secondary/40 p-4 flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-muted-foreground">Estimated total</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    (₹{COLOR_PRICE[colorMode]} + ₹{BINDING_PRICE[binding]}) × {copies}
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-gradient-primary">₹{totalRupees}</div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="secondary" className="h-12" onClick={() => setStep("upload")}>
+                  <ArrowLeft className="size-4" />
+                </Button>
+                <Button className="flex-1 h-12" onClick={() => setStep("store")}>
+                  Continue <ArrowRight className="size-4" />
+                </Button>
+              </div>
             </div>
           )}
 
@@ -221,7 +375,7 @@ const Index = () => {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button variant="secondary" className="h-12" onClick={() => setStep("upload")}>
+                <Button variant="secondary" className="h-12" onClick={() => setStep("options")}>
                   <ArrowLeft className="size-4" />
                 </Button>
                 <Button
@@ -259,9 +413,17 @@ const Index = () => {
                   </div>
                 </div>
               </div>
-              <div className="text-center text-sm text-muted-foreground">
-                Amount: <span className="text-foreground font-semibold">₹10.00</span>
+
+              <div className="rounded-xl bg-secondary/40 p-4 text-sm space-y-1.5">
+                <div className="flex justify-between"><span className="text-muted-foreground">Color</span><span>{COLOR_LABEL[colorMode]}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Binding</span><span>{BINDING_LABEL[binding]}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Copies</span><span>{copies}</span></div>
+                <div className="flex justify-between border-t border-border/50 pt-2 mt-2">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-semibold">₹{totalRupees}.00</span>
+                </div>
               </div>
+
               <div className="flex gap-3">
                 <Button variant="secondary" className="h-12" onClick={() => setStep("store")}>
                   <ArrowLeft className="size-4" />
@@ -317,6 +479,10 @@ const Index = () => {
               <div className="rounded-xl bg-secondary/60 p-4 text-left text-sm space-y-2">
                 <div className="flex justify-between gap-4"><span className="text-muted-foreground">File</span><span className="font-medium truncate">{file?.name}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Store</span><span className="font-mono">{storeUid}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Color</span><span>{COLOR_LABEL[colorMode]}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Binding</span><span>{BINDING_LABEL[binding]}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Copies</span><span>{copies}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="font-semibold">₹{totalRupees}.00</span></div>
                 {orderId && (
                   <div className="flex justify-between gap-4"><span className="text-muted-foreground">Order</span><span className="font-mono text-xs truncate">{orderId.slice(0, 8)}</span></div>
                 )}
