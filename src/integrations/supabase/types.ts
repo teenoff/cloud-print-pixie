@@ -65,12 +65,163 @@ export type Database = {
         }
         Relationships: []
       }
+      stores: {
+        Row: {
+          address_line: string | null
+          area: string | null
+          bw_price: number
+          city: string | null
+          color_price: number
+          created_at: string
+          id: string
+          latitude: number | null
+          longitude: number | null
+          name: string
+          one_pin_price: number
+          owner_user_id: string
+          phone: string
+          pincode: string | null
+          printer_name: string | null
+          qr_image_path: string | null
+          road: string | null
+          spiral_price: number
+          store_uid: string
+          tape_price: number
+          updated_at: string
+          whatsapp_number: string | null
+        }
+        Insert: {
+          address_line?: string | null
+          area?: string | null
+          bw_price?: number
+          city?: string | null
+          color_price?: number
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          one_pin_price?: number
+          owner_user_id: string
+          phone: string
+          pincode?: string | null
+          printer_name?: string | null
+          qr_image_path?: string | null
+          road?: string | null
+          spiral_price?: number
+          store_uid: string
+          tape_price?: number
+          updated_at?: string
+          whatsapp_number?: string | null
+        }
+        Update: {
+          address_line?: string | null
+          area?: string | null
+          bw_price?: number
+          city?: string | null
+          color_price?: number
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          one_pin_price?: number
+          owner_user_id?: string
+          phone?: string
+          pincode?: string | null
+          printer_name?: string | null
+          qr_image_path?: string | null
+          road?: string | null
+          spiral_price?: number
+          store_uid?: string
+          tape_price?: number
+          updated_at?: string
+          whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      public_stores: {
+        Row: {
+          address_line: string | null
+          area: string | null
+          bw_price: number | null
+          city: string | null
+          color_price: number | null
+          id: string | null
+          latitude: number | null
+          longitude: number | null
+          name: string | null
+          one_pin_price: number | null
+          pincode: string | null
+          qr_image_path: string | null
+          road: string | null
+          spiral_price: number | null
+          store_uid: string | null
+          tape_price: number | null
+        }
+        Insert: {
+          address_line?: string | null
+          area?: string | null
+          bw_price?: number | null
+          city?: string | null
+          color_price?: number | null
+          id?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          name?: string | null
+          one_pin_price?: number | null
+          pincode?: string | null
+          qr_image_path?: string | null
+          road?: string | null
+          spiral_price?: number | null
+          store_uid?: string | null
+          tape_price?: number | null
+        }
+        Update: {
+          address_line?: string | null
+          area?: string | null
+          bw_price?: number | null
+          city?: string | null
+          color_price?: number | null
+          id?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          name?: string | null
+          one_pin_price?: number | null
+          pincode?: string | null
+          qr_image_path?: string | null
+          road?: string | null
+          spiral_price?: number | null
+          store_uid?: string | null
+          tape_price?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      get_store_by_uid: {
+        Args: { _uid: string }
+        Returns: {
+          address_line: string
+          area: string
+          bw_price: number
+          city: string
+          color_price: number
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          one_pin_price: number
+          pincode: string
+          qr_image_path: string
+          road: string
+          spiral_price: number
+          store_uid: string
+          tape_price: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
