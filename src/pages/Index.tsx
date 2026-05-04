@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
   Upload, Store, QrCode, CheckCircle2, Printer, FileText,
-  ArrowRight, ArrowLeft, Loader2, LogOut, Minus, Plus, Settings2,
+  ArrowRight, ArrowLeft, Loader2, LogOut, Minus, Plus, Settings2, MapPin,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,14 +15,23 @@ type Step = "upload" | "options" | "store" | "pay" | "done";
 type Binding = "one_pin" | "tape" | "spiral";
 type ColorMode = "bw" | "color";
 
-const BINDING_PRICE: Record<Binding, number> = { one_pin: 2, tape: 15, spiral: 30 };
-const COLOR_PRICE: Record<ColorMode, number> = { bw: 2, color: 10 };
+const DEFAULT_BINDING_PRICE: Record<Binding, number> = { one_pin: 2, tape: 15, spiral: 30 };
+const DEFAULT_COLOR_PRICE: Record<ColorMode, number> = { bw: 2, color: 10 };
 const BINDING_LABEL: Record<Binding, string> = {
   one_pin: "One pin",
   tape: "Tape binding",
   spiral: "Spiral binding",
 };
 const COLOR_LABEL: Record<ColorMode, string> = { bw: "Black & white", color: "Color" };
+
+type StoreInfo = {
+  id: string; store_uid: string; name: string;
+  address_line: string | null; road: string | null; area: string | null; city: string | null; pincode: string | null;
+  latitude: number | null; longitude: number | null;
+  bw_price: number; color_price: number;
+  one_pin_price: number; tape_price: number; spiral_price: number;
+  qr_image_path: string | null;
+};
 
 const Index = () => {
   const navigate = useNavigate();
@@ -33,15 +42,25 @@ const Index = () => {
   const [uploading, setUploading] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
+  const [storeQrUrl, setStoreQrUrl] = useState<string | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
 
   // Print options
   const [binding, setBinding] = useState<Binding>("one_pin");
   const [colorMode, setColorMode] = useState<ColorMode>("bw");
   const [copies, setCopies] = useState<number>(1);
 
+  const BINDING_PRICE: Record<Binding, number> = storeInfo
+    ? { one_pin: storeInfo.one_pin_price, tape: storeInfo.tape_price, spiral: storeInfo.spiral_price }
+    : DEFAULT_BINDING_PRICE;
+  const COLOR_PRICE: Record<ColorMode, number> = storeInfo
+    ? { bw: storeInfo.bw_price, color: storeInfo.color_price }
+    : DEFAULT_COLOR_PRICE;
+
   const totalRupees = useMemo(
     () => (COLOR_PRICE[colorMode] + BINDING_PRICE[binding]) * copies,
-    [binding, colorMode, copies],
+    [binding, colorMode, copies, storeInfo],
   );
   const amountPaise = totalRupees * 100;
 
