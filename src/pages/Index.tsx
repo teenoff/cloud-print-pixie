@@ -77,7 +77,39 @@ const Index = () => {
     setBinding("one_pin");
     setColorMode("bw");
     setCopies(1);
+    setStoreInfo(null);
+    setStoreQrUrl(null);
   };
+
+  const lookupStore = async () => {
+    const uid = storeUid.trim().toUpperCase();
+    if (!uid) return;
+    setLookingUp(true);
+    try {
+      const { data, error } = await supabase.rpc("get_store_by_uid", { _uid: uid });
+      if (error) throw error;
+      const row = (data as any[])?.[0];
+      if (!row) { toast.error("Store not found"); setStoreInfo(null); setStoreQrUrl(null); return; }
+      setStoreInfo(row as StoreInfo);
+      if (row.qr_image_path) {
+        const { data: pub } = supabase.storage.from("store-assets").getPublicUrl(row.qr_image_path);
+        setStoreQrUrl(pub.publicUrl);
+      }
+      toast.success(`Store found: ${row.name}`);
+    } catch (e: any) {
+      toast.error(e.message ?? "Lookup failed");
+    } finally {
+      setLookingUp(false);
+    }
+  };
+
+  const storeMapsUrl = useMemo(() => {
+    if (!storeInfo) return null;
+    if (storeInfo.latitude && storeInfo.longitude)
+      return `https://www.google.com/maps/dir/?api=1&destination=${storeInfo.latitude},${storeInfo.longitude}`;
+    const q = [storeInfo.address_line, storeInfo.road, storeInfo.area, storeInfo.city, storeInfo.pincode].filter(Boolean).join(", ");
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
+  }, [storeInfo]);
 
   const handleSubmitOrder = async () => {
     if (!file || !user) return;
