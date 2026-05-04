@@ -16,6 +16,10 @@ export type Database = {
     Tables: {
       orders: {
         Row: {
+          amount_paise: number
+          binding: string
+          color_mode: string
+          copies: number
           created_at: string
           file_name: string
           file_size: number
@@ -28,6 +32,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          amount_paise?: number
+          binding?: string
+          color_mode?: string
+          copies?: number
           created_at?: string
           file_name: string
           file_size: number
@@ -40,6 +48,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          amount_paise?: number
+          binding?: string
+          color_mode?: string
+          copies?: number
           created_at?: string
           file_name?: string
           file_size?: number
