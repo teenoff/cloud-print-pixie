@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
   Upload, Store, QrCode, CheckCircle2, Printer, FileText,
-  ArrowRight, ArrowLeft, Loader2, LogOut, Minus, Plus, Settings2,
+  ArrowRight, ArrowLeft, Loader2, LogOut, Minus, Plus, Settings2, MapPin,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,14 +15,23 @@ type Step = "upload" | "options" | "store" | "pay" | "done";
 type Binding = "one_pin" | "tape" | "spiral";
 type ColorMode = "bw" | "color";
 
-const BINDING_PRICE: Record<Binding, number> = { one_pin: 2, tape: 15, spiral: 30 };
-const COLOR_PRICE: Record<ColorMode, number> = { bw: 2, color: 10 };
+const DEFAULT_BINDING_PRICE: Record<Binding, number> = { one_pin: 2, tape: 15, spiral: 30 };
+const DEFAULT_COLOR_PRICE: Record<ColorMode, number> = { bw: 2, color: 10 };
 const BINDING_LABEL: Record<Binding, string> = {
   one_pin: "One pin",
   tape: "Tape binding",
   spiral: "Spiral binding",
 };
 const COLOR_LABEL: Record<ColorMode, string> = { bw: "Black & white", color: "Color" };
+
+type StoreInfo = {
+  id: string; store_uid: string; name: string;
+  address_line: string | null; road: string | null; area: string | null; city: string | null; pincode: string | null;
+  latitude: number | null; longitude: number | null;
+  bw_price: number; color_price: number;
+  one_pin_price: number; tape_price: number; spiral_price: number;
+  qr_image_path: string | null;
+};
 
 const Index = () => {
   const navigate = useNavigate();
@@ -33,15 +42,25 @@ const Index = () => {
   const [uploading, setUploading] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
+  const [storeQrUrl, setStoreQrUrl] = useState<string | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
 
   // Print options
   const [binding, setBinding] = useState<Binding>("one_pin");
   const [colorMode, setColorMode] = useState<ColorMode>("bw");
   const [copies, setCopies] = useState<number>(1);
 
+  const BINDING_PRICE: Record<Binding, number> = storeInfo
+    ? { one_pin: storeInfo.one_pin_price, tape: storeInfo.tape_price, spiral: storeInfo.spiral_price }
+    : DEFAULT_BINDING_PRICE;
+  const COLOR_PRICE: Record<ColorMode, number> = storeInfo
+    ? { bw: storeInfo.bw_price, color: storeInfo.color_price }
+    : DEFAULT_COLOR_PRICE;
+
   const totalRupees = useMemo(
     () => (COLOR_PRICE[colorMode] + BINDING_PRICE[binding]) * copies,
-    [binding, colorMode, copies],
+    [binding, colorMode, copies, storeInfo],
   );
   const amountPaise = totalRupees * 100;
 
@@ -58,7 +77,39 @@ const Index = () => {
     setBinding("one_pin");
     setColorMode("bw");
     setCopies(1);
+    setStoreInfo(null);
+    setStoreQrUrl(null);
   };
+
+  const lookupStore = async () => {
+    const uid = storeUid.trim().toUpperCase();
+    if (!uid) return;
+    setLookingUp(true);
+    try {
+      const { data, error } = await supabase.rpc("get_store_by_uid", { _uid: uid });
+      if (error) throw error;
+      const row = (data as any[])?.[0];
+      if (!row) { toast.error("Store not found"); setStoreInfo(null); setStoreQrUrl(null); return; }
+      setStoreInfo(row as StoreInfo);
+      if (row.qr_image_path) {
+        const { data: pub } = supabase.storage.from("store-assets").getPublicUrl(row.qr_image_path);
+        setStoreQrUrl(pub.publicUrl);
+      }
+      toast.success(`Store found: ${row.name}`);
+    } catch (e: any) {
+      toast.error(e.message ?? "Lookup failed");
+    } finally {
+      setLookingUp(false);
+    }
+  };
+
+  const storeMapsUrl = useMemo(() => {
+    if (!storeInfo) return null;
+    if (storeInfo.latitude && storeInfo.longitude)
+      return `https://www.google.com/maps/dir/?api=1&destination=${storeInfo.latitude},${storeInfo.longitude}`;
+    const q = [storeInfo.address_line, storeInfo.road, storeInfo.area, storeInfo.city, storeInfo.pincode].filter(Boolean).join(", ");
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
+  }, [storeInfo]);
 
   const handleSubmitOrder = async () => {
     if (!file || !user) return;
@@ -363,24 +414,43 @@ const Index = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-xs uppercase tracking-wider text-muted-foreground">Store UID</label>
-                <div className="relative">
-                  <Store className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                  <Input
-                    value={storeUid}
-                    onChange={(e) => setStoreUid(e.target.value.toUpperCase())}
-                    placeholder="e.g. PB-1024"
-                    className="pl-9 h-12 font-mono tracking-wider"
-                    maxLength={20}
-                  />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Store className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input
+                      value={storeUid}
+                      onChange={(e) => { setStoreUid(e.target.value.toUpperCase()); setStoreInfo(null); }}
+                      placeholder="e.g. CR-91852218"
+                      className="pl-9 h-12 font-mono tracking-wider"
+                      maxLength={20}
+                    />
+                  </div>
+                  <Button variant="secondary" className="h-12" onClick={lookupStore} disabled={lookingUp || storeUid.trim().length < 3}>
+                    {lookingUp ? <Loader2 className="size-4 animate-spin" /> : "Find"}
+                  </Button>
                 </div>
               </div>
+              {storeInfo && (
+                <div className="rounded-xl border border-primary/40 bg-primary/10 p-4 space-y-2">
+                  <div className="font-semibold">{storeInfo.name}</div>
+                  {storeMapsUrl && (
+                    <a href={storeMapsUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                      <MapPin className="size-4" />
+                      <span className="truncate">{[storeInfo.address_line, storeInfo.city].filter(Boolean).join(", ") || "Get directions"}</span>
+                    </a>
+                  )}
+                  <div className="text-xs text-muted-foreground">
+                    B&W ₹{storeInfo.bw_price} · Color ₹{storeInfo.color_price} · Pin ₹{storeInfo.one_pin_price} · Tape ₹{storeInfo.tape_price} · Spiral ₹{storeInfo.spiral_price}
+                  </div>
+                </div>
+              )}
               <div className="flex gap-3">
                 <Button variant="secondary" className="h-12" onClick={() => setStep("options")}>
                   <ArrowLeft className="size-4" />
                 </Button>
                 <Button
                   className="flex-1 h-12"
-                  disabled={storeUid.trim().length < 3 || uploading}
+                  disabled={!storeInfo || uploading}
                   onClick={handleSubmitOrder}
                 >
                   {uploading ? (
@@ -402,16 +472,22 @@ const Index = () => {
                 </p>
               </div>
               <div className="flex justify-center">
-                <div className="p-6 bg-foreground rounded-2xl">
-                  <div className="size-56 grid place-items-center bg-background rounded-lg relative overflow-hidden">
-                    <QrCode className="size-48 text-foreground" strokeWidth={1} />
-                    <div className="absolute inset-0 grid place-items-center">
-                      <div className="size-12 rounded-lg bg-gradient-to-br from-primary to-accent grid place-items-center glow">
-                        <Printer className="size-6 text-primary-foreground" />
+                {storeQrUrl ? (
+                  <div className="p-4 bg-foreground rounded-2xl">
+                    <img src={storeQrUrl} alt="Store payment QR" className="size-56 rounded-lg bg-background object-contain" />
+                  </div>
+                ) : (
+                  <div className="p-6 bg-foreground rounded-2xl">
+                    <div className="size-56 grid place-items-center bg-background rounded-lg relative overflow-hidden">
+                      <QrCode className="size-48 text-foreground" strokeWidth={1} />
+                      <div className="absolute inset-0 grid place-items-center">
+                        <div className="size-12 rounded-lg bg-gradient-to-br from-primary to-accent grid place-items-center glow">
+                          <Printer className="size-6 text-primary-foreground" />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="rounded-xl bg-secondary/40 p-4 text-sm space-y-1.5">
