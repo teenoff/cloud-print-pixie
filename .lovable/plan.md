@@ -1,106 +1,102 @@
-## Add Store Owner Mode (Onboarding + Dashboard)
+# Plan: Order Queue, Notifications, Print Agent API & Customer Tracking
 
-Right now the app only has a customer flow. We'll add a parallel "Store Owner" flow on top of the existing Google sign-in, an onboarding wizard, a generated Store UID, printer/QR setup, and an owner dashboard.
+## 1. Database changes (migration)
 
-### 1. Auth page — add "Continue as Store" button
+**Update `orders` table:**
 
-`src/pages/Auth.tsx` will get a second button under "Continue with Google":
+- Add `customer_phone text` (collected at upload step)
+- Add `printed_at timestamptz`
+- Extend allowed `status` values: `pending | paid | printing | done | failed`
+- Update `validate_order_options` trigger to validate status enum
 
-```text
-[ Continue with Google ]   ← customer (existing)
-[ Continue as Store    ]   ← shop owner (new)
-```
+**RLS additions:**
 
-Both buttons sign in with Google. The Store button sets a flag so that after sign-in, if the user has no store yet, they're sent to `/store/onboarding` instead of the customer home.
+- Allow store owners to `SELECT` and `UPDATE` orders where `store_uid` matches a store they own (via `EXISTS` subquery on `stores`)
+- Keep customer policies unchanged (own orders only)
 
-### 2. Store onboarding wizard — `/store/onboarding`
+**Realtime:**
 
-Three steps in one page, with Back/Continue:
+- `ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;`
+- Set `REPLICA IDENTITY FULL` on orders
 
-**Step A — Store details**
-- Store name (text)
-- Store phone number (10-digit, used for UID)
-- Address: door/street, road name, area/landmark, city, pincode
-- "Use my current location" button → uses the browser's `navigator.geolocation` to fill latitude/longitude. Map preview optional (skip for v1, just show captured coords with an "Update location" button).
+**Helper function** `is_store_owner(_store_uid)` (security definer) for cleaner policies.
 
-**Step B — Pricing for customers**
-Owner sets the rates customers will see:
-- Color: B&W price/page, Color price/page
-- Binding: One pin, Tape, Spiral (each in ₹)
-- These override the current hardcoded `COLOR_PRICE` / `BINDING_PRICE` for customers who pick this store.
+## 2. Razorpay webhook (already exists)
 
-**Step C — Printer & payment**
-- "Scan for printers" button (best-effort: lists available printers via WebUSB if supported; otherwise shows "Manual setup" with a text field for printer name / IP). For v1 we just record the printer name string — actual driver integration is out of scope.
-- Upload payment QR code (image) — saved to a new `store-assets` storage bucket.
+- Verify it sets status to `paid` correctly — already implemented in `supabase/functions/razorpay-webhook/index.ts`
+- Add: after marking paid, trigger WhatsApp/SMS payment confirmation to `customer_phone`
 
-On Submit:
-- Generate **Store UID** = `CR-` + 8 to 16 alphanumeric chars derived from phone + store name (uppercase, hash-based, collision-checked against DB).
-- Create row in `stores` table.
-- Redirect to `/store/dashboard`.
+## 3. WhatsApp/SMS notifications (Twilio connector)
 
-### 3. Store UID — visible to both sides
+- Ask customer phone number (where customer login with their google)
+- New edge function `notify-customer` (callable internally + by webhook)
+  - Inputs: `order_id`, `event` (`paid` | `printed`)
+  - Looks up order + store, sends Twilio SMS to `customer_phone`
+- Webhook calls it on payment captured
+- "Mark as printed" action calls it with `event=printed`
+- User must connect Twilio via connector (we'll prompt)
+  &nbsp;
 
-- Owner dashboard shows the UID prominently in a copy-able box: `CR-91852218`.
-- Customer "Select store" step (existing `step === "store"`) gets the same UID input style and validates against the `stores` table; when matched, the customer's pricing screen uses that store's rates.
+## 4. Print Agent API (edge function `print-agent`)
 
-### 4. Store Owner Dashboard — `/store/dashboard`
+Two routes by query param `action`:
 
-Sidebar layout (shadcn sidebar) with these sections:
+- `GET ?action=next&store_uid=CR-XXXX` → returns next `paid` order (oldest first), atomically flips it to `printing`, returns signed URL to PDF
+- `POST ?action=complete` body `{order_id}` → flips to `done`, sets `printed_at`, fires `notify-customer` with `printed`
 
-- **Profile settings** — edit store details, address, pricing, re-upload QR
-- **Payment history** — list of paid orders for this store (from `orders` joined to `stores` by `store_uid`)
-- **Printing history** — list of orders + status (pending / paid / printed)
-- **Connect WhatsApp** — input for WhatsApp business number; "Open WhatsApp" deep-link `https://wa.me/<number>`. (Real WhatsApp Business API requires Meta approval — flagged as v2.)
-- **Printer section** — shows the configured printer + a **location bar** with the store address. Tapping it opens Google Maps directions: `https://www.google.com/maps/dir/?api=1&destination=<lat>,<lng>` (this is what customers also see, so they can navigate to the store).
+**Auth:** Print agent uses a per-store `agent_token` (added to `stores` table, generated on store creation). Header `x-agent-token` validated against `stores.agent_token`. No JWT needed (`verify_jwt = false` in config.toml).
 
-### 5. Database changes (migrations)
+## 5. Store dashboard — Live order queue
 
-New table `stores`:
+Add a "Live Queue" section to `StoreDashboard.tsx`:
 
-```text
-stores
-  id              uuid pk
-  owner_user_id   uuid (auth user)
-  store_uid       text unique  -- e.g. CR-91852218
-  name            text
-  phone           text
-  address_line    text
-  road            text
-  area            text
-  city            text
-  pincode         text
-  latitude        numeric
-  longitude       numeric
-  bw_price        int   default 2
-  color_price     int   default 10
-  one_pin_price   int   default 2
-  tape_price      int   default 15
-  spiral_price    int   default 30
-  printer_name    text
-  qr_image_path   text  -- in store-assets bucket
-  whatsapp_number text
-  created_at      timestamptz default now()
-```
+- Subscribes to realtime `orders` filtered by `store_uid`
+- Columns: time, file, copies, color, binding, amount, status badge, action
+- Status badges color-coded
+- "Mark as printed" button visible when status is `paid` or `printing`
+- Shows `agent_token` in a copy-able box for the print agent setup
 
-RLS:
-- Owner can `SELECT/INSERT/UPDATE` rows where `owner_user_id = auth.uid()`.
-- Anyone authenticated can `SELECT` non-sensitive columns (name, address, lat/lng, prices, store_uid, qr) — used by customers to look up a store. Sensitive columns (`whatsapp_number`, `phone`) restricted to owner. We'll do this by exposing a public view `public_stores` for the customer side.
+## 6. Customer order tracking page `/orders/:id`
 
-New storage bucket `store-assets` (public read, owner-only write) for QR images.
+- Realtime-subscribed view of one order
+- Stepper: Uploaded → Paid → Printing → Done
+- Show store info, total, ETA-style updates
+- After payment in customer flow, redirect to this page instead of in-place "Done" step
 
-Validation trigger ensures `store_uid` matches `^CR-[A-Z0-9]{8,16}$`.
+## 7. Customer flow (`Index.tsx`) tweaks
 
-### 6. Customer flow updates
+- Collect `customer_phone` on the Options step (required, validated 10-digit)
+- Persist `customer_phone` on order insert
+- After Razorpay success/redirect → navigate to `/orders/:id`
 
-- Existing `Store` step: when the user types a UID, look it up; if found, show store name + address and continue.
-- Pay step: render the store's uploaded QR image (instead of the placeholder) and show owner's pricing in the totals.
-- Done step: show address with a "Get directions" link → Google Maps.
+## Technical details
 
-### Out of scope (call out to user)
+**Files created:**
 
-- Real printer driver integration (we record the name only)
-- WhatsApp Business API messaging (deep-link only)
-- Map picker UI (we capture geolocation coords; visual map can come next)
-- Razorpay charge wiring (existing webhook stays as-is)
+- `supabase/migrations/<ts>_queue_notifications.sql`
+- `supabase/functions/notify-customer/index.ts`
+- `supabase/functions/print-agent/index.ts`
+- `src/pages/OrderTracking.tsx`
+- `src/components/store/LiveQueue.tsx`
 
-If this looks right, approve and I'll implement. If you'd like the printer scan or WhatsApp piece done differently, say so first.
+**Files edited:**
+
+- `supabase/functions/razorpay-webhook/index.ts` — call `notify-customer` after paid
+- `supabase/config.toml` — add `[functions.print-agent] verify_jwt = false` and `[functions.notify-customer] verify_jwt = false`
+- `src/pages/StoreDashboard.tsx` — add LiveQueue section + agent_token display
+- `src/pages/Index.tsx` — phone field + redirect to tracking
+- `src/pages/StoreOnboarding.tsx` — generate `agent_token` on store create
+- `src/App.tsx` — add `/orders/:id` route
+
+**Secrets needed:**
+
+- Twilio connector (TWILIO_API_KEY) — will prompt to connect via `standard_connectors--connect`
+- A `TWILIO_FROM_NUMBER` secret for the sender number
+
+## Out of scope
+
+- Real printer driver integration (the print agent is a separate program the store runs; we provide the API + token)
+- WhatsApp Business API approval (we use Twilio SMS; if Twilio WhatsApp sandbox is enabled we'll send via WhatsApp channel automatically)
+- Push notifications
+
+Approve and I'll implement in one pass. If you'd rather use WhatsApp Business directly (not Twilio), say so before I start.
