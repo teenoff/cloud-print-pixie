@@ -538,8 +538,8 @@ const Index = () => {
                         .maybeSingle();
                       if (error) throw error;
                       if (data?.status === "paid") {
-                        toast.success("Payment confirmed — sending to printer");
-                        setStep("done");
+                        toast.success("Payment confirmed");
+                        navigate(`/orders/${orderId}`);
                       } else {
                         toast.error("Payment not confirmed yet. Please complete payment.");
                       }
