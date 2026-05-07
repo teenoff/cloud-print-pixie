@@ -50,6 +50,7 @@ const Index = () => {
   const [binding, setBinding] = useState<Binding>("one_pin");
   const [colorMode, setColorMode] = useState<ColorMode>("bw");
   const [copies, setCopies] = useState<number>(1);
+  const [phone, setPhone] = useState<string>("");
 
   const BINDING_PRICE: Record<Binding, number> = storeInfo
     ? { one_pin: storeInfo.one_pin_price, tape: storeInfo.tape_price, spiral: storeInfo.spiral_price }
@@ -147,6 +148,7 @@ const Index = () => {
           color_mode: colorMode,
           copies,
           amount_paise: amountPaise,
+          customer_phone: phone.replace(/\D/g, "") || null,
         })
         .select()
         .single();
@@ -384,6 +386,21 @@ const Index = () => {
                 <p className="text-[11px] text-muted-foreground">Min 1 · Max 120</p>
               </div>
 
+              {/* Phone */}
+              <div className="space-y-3">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Mobile number for updates</label>
+                <Input
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="10-digit mobile"
+                  maxLength={10}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                  className="h-12"
+                />
+                <p className="text-[11px] text-muted-foreground">We'll text you when payment is received and when your print is ready.</p>
+              </div>
+
               {/* Total */}
               <div className="rounded-xl border border-border/60 bg-secondary/40 p-4 flex items-center justify-between">
                 <div>
@@ -399,7 +416,10 @@ const Index = () => {
                 <Button variant="secondary" className="h-12" onClick={() => setStep("upload")}>
                   <ArrowLeft className="size-4" />
                 </Button>
-                <Button className="flex-1 h-12" onClick={() => setStep("store")}>
+                <Button className="flex-1 h-12" onClick={() => {
+                  if (!/^\d{10}$/.test(phone)) { toast.error("Enter a valid 10-digit mobile"); return; }
+                  setStep("store");
+                }}>
                   Continue <ArrowRight className="size-4" />
                 </Button>
               </div>
@@ -518,8 +538,8 @@ const Index = () => {
                         .maybeSingle();
                       if (error) throw error;
                       if (data?.status === "paid") {
-                        toast.success("Payment confirmed — sending to printer");
-                        setStep("done");
+                        toast.success("Payment confirmed");
+                        navigate(`/orders/${orderId}`);
                       } else {
                         toast.error("Payment not confirmed yet. Please complete payment.");
                       }

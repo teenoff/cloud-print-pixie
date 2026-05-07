@@ -2,3 +2,9 @@ project_id = "fpudjmhodltxhdytkcbi"
 
 [functions.razorpay-webhook]
 verify_jwt = false
+
+[functions.print-agent]
+verify_jwt = false
+
+[functions.notify-customer]
+verify_jwt = false
