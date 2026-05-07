@@ -7,6 +7,7 @@ import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import StoreOnboarding from "./pages/StoreOnboarding.tsx";
 import StoreDashboard from "./pages/StoreDashboard.tsx";
+import OrderTracking from "./pages/OrderTracking.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/store/onboarding" element={<StoreOnboarding />} />
           <Route path="/store/dashboard" element={<StoreDashboard />} />
+          <Route path="/orders/:id" element={<OrderTracking />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
