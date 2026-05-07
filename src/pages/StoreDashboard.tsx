@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  Settings, Wallet, History, MessageCircle, Printer, MapPin, Copy, LogOut, Store as StoreIcon, Loader2,
+  Settings, Wallet, History, MessageCircle, Printer, MapPin, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered,
 } from "lucide-react";
+import { LiveQueue } from "@/components/store/LiveQueue";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -16,9 +17,10 @@ import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar";
 
-type Section = "profile" | "payments" | "printing" | "whatsapp" | "printer";
+type Section = "queue" | "profile" | "payments" | "printing" | "whatsapp" | "printer";
 
 const NAV: { key: Section; label: string; icon: any }[] = [
+  { key: "queue", label: "Live queue", icon: ListOrdered },
   { key: "profile", label: "Profile settings", icon: Settings },
   { key: "payments", label: "Payment history", icon: Wallet },
   { key: "printing", label: "Printing history", icon: History },
@@ -29,7 +31,7 @@ const NAV: { key: Section; label: string; icon: any }[] = [
 const StoreDashboard = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const [section, setSection] = useState<Section>("profile");
+  const [section, setSection] = useState<Section>("queue");
   const [store, setStore] = useState<any>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
@@ -104,6 +106,7 @@ const StoreDashboard = () => {
               <Button variant="secondary" size="sm" onClick={copyUid} className="gap-1.5"><Copy className="size-4" /> Copy</Button>
             </Card>
 
+            {section === "queue" && <LiveQueue storeUid={store.store_uid} agentToken={store.agent_token} />}
             {section === "profile" && <ProfileSection store={store} onSaved={setStore} />}
             {section === "payments" && <OrdersList orders={orders.filter((o) => o.status === "paid" || o.razorpay_payment_id)} title="Payments" />}
             {section === "printing" && <OrdersList orders={orders} title="Print jobs" />}
