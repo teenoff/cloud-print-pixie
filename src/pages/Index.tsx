@@ -50,6 +50,7 @@ const Index = () => {
   const [binding, setBinding] = useState<Binding>("one_pin");
   const [colorMode, setColorMode] = useState<ColorMode>("bw");
   const [copies, setCopies] = useState<number>(1);
+  const [phone, setPhone] = useState<string>("");
 
   const BINDING_PRICE: Record<Binding, number> = storeInfo
     ? { one_pin: storeInfo.one_pin_price, tape: storeInfo.tape_price, spiral: storeInfo.spiral_price }
@@ -147,6 +148,7 @@ const Index = () => {
           color_mode: colorMode,
           copies,
           amount_paise: amountPaise,
+          customer_phone: phone.replace(/\D/g, "") || null,
         })
         .select()
         .single();
