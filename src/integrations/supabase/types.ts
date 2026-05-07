@@ -21,10 +21,12 @@ export type Database = {
           color_mode: string
           copies: number
           created_at: string
+          customer_phone: string | null
           file_name: string
           file_size: number
           file_url: string
           id: string
+          printed_at: string | null
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
           status: string
@@ -37,10 +39,12 @@ export type Database = {
           color_mode?: string
           copies?: number
           created_at?: string
+          customer_phone?: string | null
           file_name: string
           file_size: number
           file_url: string
           id?: string
+          printed_at?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           status?: string
@@ -53,10 +57,12 @@ export type Database = {
           color_mode?: string
           copies?: number
           created_at?: string
+          customer_phone?: string | null
           file_name?: string
           file_size?: number
           file_url?: string
           id?: string
+          printed_at?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           status?: string
@@ -68,6 +74,7 @@ export type Database = {
       stores: {
         Row: {
           address_line: string | null
+          agent_token: string
           area: string | null
           bw_price: number
           city: string | null
@@ -92,6 +99,7 @@ export type Database = {
         }
         Insert: {
           address_line?: string | null
+          agent_token?: string
           area?: string | null
           bw_price?: number
           city?: string | null
@@ -116,6 +124,7 @@ export type Database = {
         }
         Update: {
           address_line?: string | null
+          agent_token?: string
           area?: string | null
           bw_price?: number
           city?: string | null
@@ -222,6 +231,7 @@ export type Database = {
           tape_price: number
         }[]
       }
+      is_store_owner: { Args: { _store_uid: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
