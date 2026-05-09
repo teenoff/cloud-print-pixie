@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  ArrowLeft, ArrowRight, Loader2, MapPin, Printer, QrCode, Store as StoreIcon, Upload,
+  ArrowLeft, ArrowRight, Loader2, MapPin, Printer, Store as StoreIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
