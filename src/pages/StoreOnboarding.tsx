@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { generateStoreUid } from "@/lib/storeUid";
+import { generateStoreUid, isValidStoreUid } from "@/lib/storeUid";
 
 type WizardStep = 1 | 2 | 3;
 
@@ -33,17 +33,20 @@ const StoreOnboarding = () => {
   const [lng, setLng] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
 
+  // Custom UID
+  const [customUid, setCustomUid] = useState("");
+
   // Step 2 — pricing
   const [bwPrice, setBwPrice] = useState(2);
   const [colorPrice, setColorPrice] = useState(10);
+  const [microPrice, setMicroPrice] = useState(5);
   const [onePin, setOnePin] = useState(2);
   const [tape, setTape] = useState(15);
   const [spiral, setSpiral] = useState(30);
 
-  // Step 3 — printer + QR
+  // Step 3 — printer (QR moved to dashboard payment section)
   const [printerName, setPrinterName] = useState("");
   const [scanning, setScanning] = useState(false);
-  const [qrFile, setQrFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (!loading && !user) navigate("/auth", { replace: true });
@@ -102,23 +105,17 @@ const StoreOnboarding = () => {
 
   const submit = async () => {
     if (!user) return;
-    if (!qrFile) { toast.error("Upload a payment QR image"); return; }
     setSubmitting(true);
     try {
-      // Upload QR
-      const ext = qrFile.name.split(".").pop() || "png";
-      const path = `${user.id}/qr-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("store-assets")
-        .upload(path, qrFile, { contentType: qrFile.type, upsert: true });
-      if (upErr) throw upErr;
-
-      // Generate unique UID with collision retry
-      let uid = generateStoreUid(name, phone);
-      for (let i = 0; i < 5; i++) {
-        const { data: exists } = await supabase
-          .from("stores").select("id").eq("store_uid", uid).maybeSingle();
-        if (!exists) break;
-        uid = generateStoreUid(name, phone, String(i + 1));
+      let uid = (customUid || generateStoreUid(name, phone)).toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (!isValidStoreUid(uid)) { toast.error("UID must be 2-4 letters then 4-14 digits"); setSubmitting(false); return; }
+      // Collision retry only when auto-generated
+      if (!customUid) {
+        for (let i = 0; i < 5; i++) {
+          const { data: exists } = await supabase.from("stores").select("id").eq("store_uid", uid).maybeSingle();
+          if (!exists) break;
+          uid = generateStoreUid(name, phone, String(i + 1));
+        }
       }
 
       const { error: insErr } = await supabase.from("stores").insert({
@@ -128,10 +125,9 @@ const StoreOnboarding = () => {
         phone: phone.replace(/\D/g, ""),
         address_line: addressLine, road, area, city, pincode,
         latitude: lat, longitude: lng,
-        bw_price: bwPrice, color_price: colorPrice,
+        bw_price: bwPrice, color_price: colorPrice, micro_price: microPrice,
         one_pin_price: onePin, tape_price: tape, spiral_price: spiral,
         printer_name: printerName || null,
-        qr_image_path: path,
       });
       if (insErr) throw insErr;
       toast.success(`Store created — ${uid}`);
