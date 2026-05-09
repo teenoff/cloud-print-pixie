@@ -71,6 +71,48 @@ export type Database = {
         }
         Relationships: []
       }
+      store_printers: {
+        Row: {
+          connection: string
+          created_at: string
+          id: string
+          kind: string
+          name: string
+          store_id: string
+        }
+        Insert: {
+          connection?: string
+          created_at?: string
+          id?: string
+          kind: string
+          name: string
+          store_id: string
+        }
+        Update: {
+          connection?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_printers_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "public_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_printers_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stores: {
         Row: {
           address_line: string | null
@@ -81,8 +123,11 @@ export type Database = {
           color_price: number
           created_at: string
           id: string
+          is_online: boolean
+          last_seen_at: string | null
           latitude: number | null
           longitude: number | null
+          micro_price: number
           name: string
           one_pin_price: number
           owner_user_id: string
@@ -106,8 +151,11 @@ export type Database = {
           color_price?: number
           created_at?: string
           id?: string
+          is_online?: boolean
+          last_seen_at?: string | null
           latitude?: number | null
           longitude?: number | null
+          micro_price?: number
           name: string
           one_pin_price?: number
           owner_user_id: string
@@ -131,8 +179,11 @@ export type Database = {
           color_price?: number
           created_at?: string
           id?: string
+          is_online?: boolean
+          last_seen_at?: string | null
           latitude?: number | null
           longitude?: number | null
+          micro_price?: number
           name?: string
           one_pin_price?: number
           owner_user_id?: string
@@ -219,8 +270,11 @@ export type Database = {
           city: string
           color_price: number
           id: string
+          is_online: boolean
+          last_seen_at: string
           latitude: number
           longitude: number
+          micro_price: number
           name: string
           one_pin_price: number
           pincode: string
@@ -232,6 +286,22 @@ export type Database = {
         }[]
       }
       is_store_owner: { Args: { _store_uid: string }; Returns: boolean }
+      list_nearby_stores: {
+        Args: { _lat: number; _limit?: number; _lng: number }
+        Returns: {
+          address_line: string
+          bw_price: number
+          city: string
+          color_price: number
+          distance_km: number
+          is_online: boolean
+          latitude: number
+          longitude: number
+          micro_price: number
+          name: string
+          store_uid: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

@@ -7,11 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  ArrowLeft, ArrowRight, Loader2, MapPin, Printer, QrCode, Store as StoreIcon, Upload,
+  ArrowLeft, ArrowRight, Loader2, MapPin, Printer, Store as StoreIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { generateStoreUid } from "@/lib/storeUid";
+import { generateStoreUid, isValidStoreUid } from "@/lib/storeUid";
 
 type WizardStep = 1 | 2 | 3;
 
@@ -33,17 +33,20 @@ const StoreOnboarding = () => {
   const [lng, setLng] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
 
+  // Custom UID
+  const [customUid, setCustomUid] = useState("");
+
   // Step 2 — pricing
   const [bwPrice, setBwPrice] = useState(2);
   const [colorPrice, setColorPrice] = useState(10);
+  const [microPrice, setMicroPrice] = useState(5);
   const [onePin, setOnePin] = useState(2);
   const [tape, setTape] = useState(15);
   const [spiral, setSpiral] = useState(30);
 
-  // Step 3 — printer + QR
+  // Step 3 — printer (QR moved to dashboard payment section)
   const [printerName, setPrinterName] = useState("");
   const [scanning, setScanning] = useState(false);
-  const [qrFile, setQrFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (!loading && !user) navigate("/auth", { replace: true });
@@ -102,23 +105,17 @@ const StoreOnboarding = () => {
 
   const submit = async () => {
     if (!user) return;
-    if (!qrFile) { toast.error("Upload a payment QR image"); return; }
     setSubmitting(true);
     try {
-      // Upload QR
-      const ext = qrFile.name.split(".").pop() || "png";
-      const path = `${user.id}/qr-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("store-assets")
-        .upload(path, qrFile, { contentType: qrFile.type, upsert: true });
-      if (upErr) throw upErr;
-
-      // Generate unique UID with collision retry
-      let uid = generateStoreUid(name, phone);
-      for (let i = 0; i < 5; i++) {
-        const { data: exists } = await supabase
-          .from("stores").select("id").eq("store_uid", uid).maybeSingle();
-        if (!exists) break;
-        uid = generateStoreUid(name, phone, String(i + 1));
+      let uid = (customUid || generateStoreUid(name, phone)).toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (!isValidStoreUid(uid)) { toast.error("UID must be 2-4 letters then 4-14 digits"); setSubmitting(false); return; }
+      // Collision retry only when auto-generated
+      if (!customUid) {
+        for (let i = 0; i < 5; i++) {
+          const { data: exists } = await supabase.from("stores").select("id").eq("store_uid", uid).maybeSingle();
+          if (!exists) break;
+          uid = generateStoreUid(name, phone, String(i + 1));
+        }
       }
 
       const { error: insErr } = await supabase.from("stores").insert({
@@ -128,10 +125,9 @@ const StoreOnboarding = () => {
         phone: phone.replace(/\D/g, ""),
         address_line: addressLine, road, area, city, pincode,
         latitude: lat, longitude: lng,
-        bw_price: bwPrice, color_price: colorPrice,
+        bw_price: bwPrice, color_price: colorPrice, micro_price: microPrice,
         one_pin_price: onePin, tape_price: tape, spiral_price: spiral,
         printer_name: printerName || null,
-        qr_image_path: path,
       });
       if (insErr) throw insErr;
       toast.success(`Store created — ${uid}`);
@@ -216,13 +212,14 @@ const StoreOnboarding = () => {
         {step === 2 && (
           <>
             <h2 className="text-lg font-semibold">Customer pricing</h2>
-            <p className="text-sm text-muted-foreground -mt-3">Per copy. Customers see these rates.</p>
+            <p className="text-sm text-muted-foreground -mt-3">Color modes are priced per page. Binding is per copy.</p>
             <div className="grid grid-cols-2 gap-4">
-              <PriceField label="Black & white (₹)" value={bwPrice} onChange={setBwPrice} />
-              <PriceField label="Color (₹)" value={colorPrice} onChange={setColorPrice} />
-              <PriceField label="One pin (₹)" value={onePin} onChange={setOnePin} />
-              <PriceField label="Tape binding (₹)" value={tape} onChange={setTape} />
-              <PriceField label="Spiral binding (₹)" value={spiral} onChange={setSpiral} />
+              <PriceField label="Black & white (₹/page)" value={bwPrice} onChange={setBwPrice} />
+              <PriceField label="Color (₹/page)" value={colorPrice} onChange={setColorPrice} />
+              <PriceField label="Micro (₹/page)" value={microPrice} onChange={setMicroPrice} />
+              <PriceField label="One pin (₹/copy)" value={onePin} onChange={setOnePin} />
+              <PriceField label="Tape binding (₹/copy)" value={tape} onChange={setTape} />
+              <PriceField label="Spiral binding (₹/copy)" value={spiral} onChange={setSpiral} />
             </div>
             <div className="flex gap-3">
               <Button variant="secondary" onClick={() => setStep(1)} className="h-12"><ArrowLeft className="size-4" /></Button>
@@ -233,35 +230,24 @@ const StoreOnboarding = () => {
 
         {step === 3 && (
           <>
-            <h2 className="text-lg font-semibold">Printer & payment</h2>
+            <h2 className="text-lg font-semibold">Store UID & printer</h2>
             <div className="space-y-3">
-              <Label className="flex items-center gap-2"><Printer className="size-4 text-primary" /> Printer</Label>
+              <Label>Store UID</Label>
+              <Input value={customUid}
+                onChange={(e) => setCustomUid(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 18))}
+                placeholder={generateStoreUid(name || "Store", phone || "0000000000")}
+                className="font-mono tracking-wider" maxLength={18} />
+              <p className="text-[11px] text-muted-foreground">2–4 letters then 4–14 digits. Leave blank to use the auto-generated UID.</p>
+            </div>
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2"><Printer className="size-4 text-primary" /> Primary printer</Label>
               <div className="flex gap-2">
                 <Input value={printerName} onChange={(e) => setPrinterName(e.target.value)} placeholder="Printer name or IP" />
                 <Button variant="secondary" type="button" onClick={scanPrinters} disabled={scanning}>
                   {scanning ? <Loader2 className="size-4 animate-spin" /> : "Scan"}
                 </Button>
               </div>
-              <p className="text-[11px] text-muted-foreground">Scan uses WebUSB if your printer supports it. Otherwise, type the name manually.</p>
-            </div>
-            <div className="space-y-3">
-              <Label className="flex items-center gap-2"><QrCode className="size-4 text-primary" /> Payment QR code</Label>
-              <label className="block border-2 border-dashed border-border rounded-2xl p-6 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all">
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) { setQrFile(f); toast.success("QR ready"); }
-                  }} />
-                {qrFile ? (
-                  <div className="text-sm">{qrFile.name} · {(qrFile.size / 1024).toFixed(0)} KB</div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="size-6 text-primary" />
-                    <div className="text-sm font-medium">Upload your UPI / payment QR</div>
-                    <div className="text-xs text-muted-foreground">PNG or JPG</div>
-                  </div>
-                )}
-              </label>
+              <p className="text-[11px] text-muted-foreground">You can add up to 6 colour, 7 B&W and 5 micro printers from the dashboard. Upload your payment QR from the Payment History section.</p>
             </div>
             <div className="flex gap-3">
               <Button variant="secondary" onClick={() => setStep(2)} className="h-12"><ArrowLeft className="size-4" /></Button>
