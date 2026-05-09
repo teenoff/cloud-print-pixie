@@ -1,102 +1,81 @@
-# Plan: Order Queue, Notifications, Print Agent API & Customer Tracking
+# Plan: Flow reorder, Micro option, multi-printer, store presence
 
-## 1. Database changes (migration)
+## 1. Customer flow reorder
+New order: **Upload → Store → Options → Pay → Print**
+- After upload, jump to a new **Store** step.
+- Store step shows:
+  - "Nearest stores" list (distance-sorted using browser geolocation + store lat/lng)
+  - Active/Inactive badge (green dot if online, grey if offline)
+  - Manual UID entry input ("Enter store code")
+  - Selecting an inactive store is disabled (toast: "Store offline")
+- Customer can change store any time before Pay.
+- Options step shows the **uploaded page count** to the right of the Print/Options header, e.g. `Uploaded pages: 012`.
 
-**Update `orders` table:**
+## 2. Store UID format (6–18 chars, 2–4 letters + 4–14 digits)
+- New regex: `^[A-Z]{2,4}[0-9]{4,14}$` (total length 6–18). Drop the `CR-` prefix.
+- Default UID auto-generated from store name initials (2–4 letters) + last 4–14 digits of phone.
+- Owner can customise UID during onboarding and from Profile settings, validated by the same regex.
+- Update DB trigger `validate_store` regex.
+- Update `generateStoreUid()` + `lookupStore()` callers — accept raw UID, no `CR-` prefix.
 
-- Add `customer_phone text` (collected at upload step)
-- Add `printed_at timestamptz`
-- Extend allowed `status` values: `pending | paid | printing | done | failed`
-- Update `validate_order_options` trigger to validate status enum
+## 3. Color section adds "Micro" + per-page pricing
+- Color modes become: `bw | color | micro` (DB enum-like check + `validate_order_options` update).
+- **All color modes priced per page** for the entire order: `amount = pages × copies × price_per_page`.
+  - Add `micro_price` column to `stores` (default 5).
+  - Customer Options UI: 3 segmented buttons (B&W / Color / Micro) each showing `₹x/page`.
+- Update price calc in `Index.tsx` and store dashboard pricing form.
 
-**RLS additions:**
+## 4. Store presence (online/offline)
+- Add `is_online boolean default false` + `last_seen_at timestamptz` to `stores`.
+- Owner dashboard has an **Online toggle** in header — flips `is_online` and pings `last_seen_at` every 60 s while open.
+- A store is considered active if `is_online = true AND last_seen_at > now()-2 min`.
+- Expose `is_online` via `get_store_by_uid` + a new `list_nearby_stores(lat, lng, radius_km)` SECURITY DEFINER function used by the Store step.
 
-- Allow store owners to `SELECT` and `UPDATE` orders where `store_uid` matches a store they own (via `EXISTS` subquery on `stores`)
-- Keep customer policies unchanged (own orders only)
+## 5. Permission-denied fix on `is_store_owner`
+- Current `is_store_owner(text)` is SECURITY DEFINER but RLS on `stores` blocks it indirectly. Grant `EXECUTE` to `authenticated, anon` and ensure search_path is set (already is). Re-test with a fresh migration.
 
-**Realtime:**
+## 6. Store dashboard reshuffle
+- **Printer section** → remove the QR display. Add:
+  - Settings panel
+  - "Add printer" UI (lists printers in a sub-table `store_printers` with `kind ∈ {color, bw, micro}`).
+  - Limits enforced client-side and via trigger: max 6 color, 7 b&w, 5 micro.
+- **Payment history section** → show QR image, plus:
+  - Settings panel
+  - "Change QR" upload
+  - "Download statement" (CSV of paid orders).
 
-- `ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;`
-- Set `REPLICA IDENTITY FULL` on orders
+### New table `store_printers`
+| col | type |
+|---|---|
+| id | uuid pk |
+| store_id | uuid fk → stores |
+| kind | text check (color/bw/micro) |
+| name | text |
+| connection | text (usb/network/manual) |
+| created_at | timestamptz |
 
-**Helper function** `is_store_owner(_store_uid)` (security definer) for cleaner policies.
+Trigger enforces per-kind limits.
 
-## 2. Razorpay webhook (already exists)
+## 7. Files touched
 
-- Verify it sets status to `paid` correctly — already implemented in `supabase/functions/razorpay-webhook/index.ts`
-- Add: after marking paid, trigger WhatsApp/SMS payment confirmation to `customer_phone`
+**DB migration** (single file):
+- alter `stores`: add `is_online`, `last_seen_at`, `micro_price`; update `validate_store` regex.
+- alter `orders`: extend `color_mode` validation to include `micro`.
+- create `store_printers` table + RLS + per-kind-limit trigger.
+- update `get_store_by_uid` return cols (`is_online`, `micro_price`).
+- create `list_nearby_stores(lat, lng)` function.
+- `GRANT EXECUTE` on `is_store_owner` to authenticated.
 
-## 3. WhatsApp/SMS notifications (Twilio connector)
-
-- Ask customer phone number (where customer login with their google)
-- New edge function `notify-customer` (callable internally + by webhook)
-  - Inputs: `order_id`, `event` (`paid` | `printed`)
-  - Looks up order + store, sends Twilio SMS to `customer_phone`
-- Webhook calls it on payment captured
-- "Mark as printed" action calls it with `event=printed`
-- User must connect Twilio via connector (we'll prompt)
-  &nbsp;
-
-## 4. Print Agent API (edge function `print-agent`)
-
-Two routes by query param `action`:
-
-- `GET ?action=next&store_uid=CR-XXXX` → returns next `paid` order (oldest first), atomically flips it to `printing`, returns signed URL to PDF
-- `POST ?action=complete` body `{order_id}` → flips to `done`, sets `printed_at`, fires `notify-customer` with `printed`
-
-**Auth:** Print agent uses a per-store `agent_token` (added to `stores` table, generated on store creation). Header `x-agent-token` validated against `stores.agent_token`. No JWT needed (`verify_jwt = false` in config.toml).
-
-## 5. Store dashboard — Live order queue
-
-Add a "Live Queue" section to `StoreDashboard.tsx`:
-
-- Subscribes to realtime `orders` filtered by `store_uid`
-- Columns: time, file, copies, color, binding, amount, status badge, action
-- Status badges color-coded
-- "Mark as printed" button visible when status is `paid` or `printing`
-- Shows `agent_token` in a copy-able box for the print agent setup
-
-## 6. Customer order tracking page `/orders/:id`
-
-- Realtime-subscribed view of one order
-- Stepper: Uploaded → Paid → Printing → Done
-- Show store info, total, ETA-style updates
-- After payment in customer flow, redirect to this page instead of in-place "Done" step
-
-## 7. Customer flow (`Index.tsx`) tweaks
-
-- Collect `customer_phone` on the Options step (required, validated 10-digit)
-- Persist `customer_phone` on order insert
-- After Razorpay success/redirect → navigate to `/orders/:id`
-
-## Technical details
-
-**Files created:**
-
-- `supabase/migrations/<ts>_queue_notifications.sql`
-- `supabase/functions/notify-customer/index.ts`
-- `supabase/functions/print-agent/index.ts`
-- `src/pages/OrderTracking.tsx`
-- `src/components/store/LiveQueue.tsx`
-
-**Files edited:**
-
-- `supabase/functions/razorpay-webhook/index.ts` — call `notify-customer` after paid
-- `supabase/config.toml` — add `[functions.print-agent] verify_jwt = false` and `[functions.notify-customer] verify_jwt = false`
-- `src/pages/StoreDashboard.tsx` — add LiveQueue section + agent_token display
-- `src/pages/Index.tsx` — phone field + redirect to tracking
-- `src/pages/StoreOnboarding.tsx` — generate `agent_token` on store create
-- `src/App.tsx` — add `/orders/:id` route
-
-**Secrets needed:**
-
-- Twilio connector (TWILIO_API_KEY) — will prompt to connect via `standard_connectors--connect`
-- A `TWILIO_FROM_NUMBER` secret for the sender number
+**Frontend**
+- `src/lib/storeUid.ts` — new generator/validator.
+- `src/pages/Index.tsx` — reorder steps, add Store step with nearby list + UID input, page counter, Micro option, per-page pricing.
+- `src/pages/StoreOnboarding.tsx` — customisable UID field, Micro price, drop QR upload from printer step (move to payment-history settings).
+- `src/pages/StoreDashboard.tsx` — Online toggle + heartbeat, restructure Printer & Payments sections, statement CSV download, printers manager.
+- `src/components/store/PrintersManager.tsx` (new).
+- `src/components/store/PaymentSettings.tsx` (new — QR change + statement).
 
 ## Out of scope
+- Real printer driver routing per kind (still manual; agent picks the queue).
+- Push notifications for offline → online transitions.
 
-- Real printer driver integration (the print agent is a separate program the store runs; we provide the API + token)
-- WhatsApp Business API approval (we use Twilio SMS; if Twilio WhatsApp sandbox is enabled we'll send via WhatsApp channel automatically)
-- Push notifications
-
-Approve and I'll implement in one pass. If you'd rather use WhatsApp Business directly (not Twilio), say so before I start.
+Confirm and I'll implement.
