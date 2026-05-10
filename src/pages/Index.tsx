@@ -173,8 +173,12 @@ const Index = () => {
 
   const handleSubmitOrder = async () => {
     if (!file || !user || !storeInfo) return;
-    if (!storeInfo.is_online) { toast.error("Store is offline — pick another store"); return; }
     if (file.size > 20 * 1024 * 1024) { toast.error("File too large (max 20MB)"); return; }
+
+    // Server-side re-confirmation right before payment
+    const fresh = await lookupStore(storeInfo.store_uid, { silent: true });
+    if (!fresh) { toast.error("Could not confirm store. Please re-select."); return; }
+    if (!fresh.is_online) { toast.error(`${fresh.name} is offline — pick another store`); setStep("store"); return; }
 
     setUploading(true);
     try {
