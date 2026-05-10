@@ -1,3 +1,2 @@
-# Welcome to my project
 
-"© 2026 [teenoff]. All Rights Reserved" notice
+# "© 2026 [teenoff]. All Rights Reserved" notice
