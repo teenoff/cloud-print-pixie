@@ -46,6 +46,7 @@ const Index = () => {
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
   const [storeQrUrl, setStoreQrUrl] = useState<string | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
+  const [uidError, setUidError] = useState<string | null>(null);
   const [nearby, setNearby] = useState<any[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
 
@@ -96,21 +97,50 @@ const Index = () => {
     } else setStoreQrUrl(null);
   };
 
-  const lookupStore = async () => {
-    const uid = storeUid.trim().toUpperCase();
-    if (!isValidStoreUid(uid)) { toast.error("Invalid Store UID"); return; }
+  const lookupStore = async (rawUid?: string, opts?: { silent?: boolean }) => {
+    const uid = (rawUid ?? storeUid).trim().toUpperCase();
+    setUidError(null);
+    if (!uid) { setStoreInfo(null); return null; }
+    if (!isValidStoreUid(uid)) {
+      setUidError("Format: 2–4 letters then 4–14 digits (e.g. QP91852218)");
+      setStoreInfo(null); setStoreQrUrl(null);
+      return null;
+    }
     setLookingUp(true);
     try {
       const { data, error } = await supabase.rpc("get_store_by_uid", { _uid: uid });
       if (error) throw error;
       const row = (data as any[])?.[0];
-      if (!row) { toast.error("Store not found"); setStoreInfo(null); setStoreQrUrl(null); return; }
+      if (!row) {
+        setUidError("No store found with this UID");
+        setStoreInfo(null); setStoreQrUrl(null);
+        return null;
+      }
+      if (!row.is_online) {
+        setUidError(`${row.name} is currently offline`);
+      }
       applyStore(row);
-      toast.success(`Store found: ${row.name}`);
+      if (!opts?.silent) toast.success(`Store found: ${row.name}`);
+      return row;
     } catch (e: any) {
-      toast.error(e.message ?? "Lookup failed");
+      setUidError(e.message ?? "Lookup failed");
+      return null;
     } finally { setLookingUp(false); }
   };
+
+  // Debounced auto-validation as the user types
+  useEffect(() => {
+    const uid = storeUid.trim().toUpperCase();
+    if (!uid) { setUidError(null); return; }
+    if (!isValidStoreUid(uid)) {
+      setUidError("Format: 2–4 letters then 4–14 digits");
+      return;
+    }
+    setUidError(null);
+    const t = setTimeout(() => { lookupStore(uid, { silent: true }); }, 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeUid]);
 
   const findNearby = () => {
     if (!navigator.geolocation) { toast.error("Geolocation not supported"); return; }
@@ -143,8 +173,12 @@ const Index = () => {
 
   const handleSubmitOrder = async () => {
     if (!file || !user || !storeInfo) return;
-    if (!storeInfo.is_online) { toast.error("Store is offline — pick another store"); return; }
     if (file.size > 20 * 1024 * 1024) { toast.error("File too large (max 20MB)"); return; }
+
+    // Server-side re-confirmation right before payment
+    const fresh = await lookupStore(storeInfo.store_uid, { silent: true });
+    if (!fresh) { toast.error("Could not confirm store. Please re-select."); return; }
+    if (!fresh.is_online) { toast.error(`${fresh.name} is offline — pick another store`); setStep("store"); return; }
 
     setUploading(true);
     try {
@@ -270,12 +304,20 @@ const Index = () => {
                     <Store className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <Input value={storeUid} onChange={(e) => { setStoreUid(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")); setStoreInfo(null); }}
                       placeholder="e.g. QP91852218" className="pl-9 h-12 font-mono tracking-wider" maxLength={18} />
+                    {lookingUp && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground" />}
+                    {!lookingUp && storeInfo && storeInfo.store_uid === storeUid.trim().toUpperCase() && (
+                      <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-emerald-500" />
+                    )}
                   </div>
-                  <Button variant="secondary" className="h-12" onClick={lookupStore} disabled={lookingUp || !isValidStoreUid(storeUid.trim().toUpperCase())}>
+                  <Button variant="secondary" className="h-12" onClick={() => lookupStore()} disabled={lookingUp || !isValidStoreUid(storeUid.trim().toUpperCase())}>
                     {lookingUp ? <Loader2 className="size-4 animate-spin" /> : "Find"}
                   </Button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">2–4 letters then 4–14 digits.</p>
+                {uidError ? (
+                  <p className="text-[11px] text-destructive">{uidError}</p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">2–4 letters then 4–14 digits. Auto-validates as you type.</p>
+                )}
               </div>
 
               <div className="space-y-2">
