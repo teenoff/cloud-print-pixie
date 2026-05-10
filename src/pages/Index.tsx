@@ -304,12 +304,20 @@ const Index = () => {
                     <Store className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <Input value={storeUid} onChange={(e) => { setStoreUid(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")); setStoreInfo(null); }}
                       placeholder="e.g. QP91852218" className="pl-9 h-12 font-mono tracking-wider" maxLength={18} />
+                    {lookingUp && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground" />}
+                    {!lookingUp && storeInfo && storeInfo.store_uid === storeUid.trim().toUpperCase() && (
+                      <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-emerald-500" />
+                    )}
                   </div>
-                  <Button variant="secondary" className="h-12" onClick={lookupStore} disabled={lookingUp || !isValidStoreUid(storeUid.trim().toUpperCase())}>
+                  <Button variant="secondary" className="h-12" onClick={() => lookupStore()} disabled={lookingUp || !isValidStoreUid(storeUid.trim().toUpperCase())}>
                     {lookingUp ? <Loader2 className="size-4 animate-spin" /> : "Find"}
                   </Button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">2–4 letters then 4–14 digits.</p>
+                {uidError ? (
+                  <p className="text-[11px] text-destructive">{uidError}</p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">2–4 letters then 4–14 digits. Auto-validates as you type.</p>
+                )}
               </div>
 
               <div className="space-y-2">
