@@ -46,6 +46,7 @@ const Index = () => {
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
   const [storeQrUrl, setStoreQrUrl] = useState<string | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
+  const [uidError, setUidError] = useState<string | null>(null);
   const [nearby, setNearby] = useState<any[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
 
