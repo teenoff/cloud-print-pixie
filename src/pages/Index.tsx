@@ -97,21 +97,50 @@ const Index = () => {
     } else setStoreQrUrl(null);
   };
 
-  const lookupStore = async () => {
-    const uid = storeUid.trim().toUpperCase();
-    if (!isValidStoreUid(uid)) { toast.error("Invalid Store UID"); return; }
+  const lookupStore = async (rawUid?: string, opts?: { silent?: boolean }) => {
+    const uid = (rawUid ?? storeUid).trim().toUpperCase();
+    setUidError(null);
+    if (!uid) { setStoreInfo(null); return null; }
+    if (!isValidStoreUid(uid)) {
+      setUidError("Format: 2–4 letters then 4–14 digits (e.g. QP91852218)");
+      setStoreInfo(null); setStoreQrUrl(null);
+      return null;
+    }
     setLookingUp(true);
     try {
       const { data, error } = await supabase.rpc("get_store_by_uid", { _uid: uid });
       if (error) throw error;
       const row = (data as any[])?.[0];
-      if (!row) { toast.error("Store not found"); setStoreInfo(null); setStoreQrUrl(null); return; }
+      if (!row) {
+        setUidError("No store found with this UID");
+        setStoreInfo(null); setStoreQrUrl(null);
+        return null;
+      }
+      if (!row.is_online) {
+        setUidError(`${row.name} is currently offline`);
+      }
       applyStore(row);
-      toast.success(`Store found: ${row.name}`);
+      if (!opts?.silent) toast.success(`Store found: ${row.name}`);
+      return row;
     } catch (e: any) {
-      toast.error(e.message ?? "Lookup failed");
+      setUidError(e.message ?? "Lookup failed");
+      return null;
     } finally { setLookingUp(false); }
   };
+
+  // Debounced auto-validation as the user types
+  useEffect(() => {
+    const uid = storeUid.trim().toUpperCase();
+    if (!uid) { setUidError(null); return; }
+    if (!isValidStoreUid(uid)) {
+      setUidError("Format: 2–4 letters then 4–14 digits");
+      return;
+    }
+    setUidError(null);
+    const t = setTimeout(() => { lookupStore(uid, { silent: true }); }, 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeUid]);
 
   const findNearby = () => {
     if (!navigator.geolocation) { toast.error("Geolocation not supported"); return; }
