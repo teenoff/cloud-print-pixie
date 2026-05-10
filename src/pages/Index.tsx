@@ -1,39 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import {
-  Upload,
-  QrCode,
-  CheckCircle2,
-  Printer,
-  FileText,
-  ArrowRight,
-  ArrowLeft,
-  Loader2,
-  LogOut,
-  MapPin,
-} from "lucide-react";
+import { Upload, Store, QrCode, CheckCircle2, Printer, FileText, ArrowRight, ArrowLeft, Loader2, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { usePricing } from "@/hooks/usePricing";
-import { StoreSelector } from "@/components/StoreSelector";
-import { PrintOptions } from "@/components/PrintOptions";
-import { OrderSummary } from "@/components/OrderSummary";
-import { getPDFPageCount, validatePDFFile } from "@/lib/pdf-parser";
 
-type Step = "upload" | "store" | "options" | "pay" | "print";
-
-interface SelectedStore {
-  id: string;
-  store_uid: string;
-  name: string;
-  phone: string;
-  latitude: number;
-  longitude: number;
-  is_online: boolean;
-}
+type Step = "upload" | "store" | "pay" | "done";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -51,10 +25,6 @@ const Index = () => {
   const [uploading, setUploading] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
-  const [pricePerPage, setPricePerPage] = useState(0);
-
-  // Pricing
-  const { calculateTotal } = usePricing(selectedStore?.id || null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth", { replace: true });
@@ -69,7 +39,6 @@ const Index = () => {
     setQuantity(1);
     setOrderId(null);
     setFileUrl(null);
-    setPricePerPage(0);
   };
 
   // Handle file upload to storage & create order
@@ -94,7 +63,7 @@ const Index = () => {
         .upload(path, file, { contentType: file.type || "application/pdf" });
       if (upErr) throw upErr;
 
-      // Generate signed URL (valid 1 hour)
+      // Signed URL (valid 1 hour) instead of public URL
       const { data: signed, error: signErr } = await supabase.storage
         .from("print-files")
         .createSignedUrl(path, 60 * 60);
@@ -123,11 +92,6 @@ const Index = () => {
           file_name: file.name,
           file_size: file.size,
           user_id: user.id,
-          print_type: printType,
-          page_count: pageCount,
-          price_per_page: price,
-          total_price: totalPrice,
-          status: "pending",
         })
         .select()
         .single();
@@ -151,12 +115,18 @@ const Index = () => {
 
   const steps: { key: Step; label: string }[] = [
     { key: "upload", label: "Upload" },
+    { key: "options", label: "Options" },
     { key: "store", label: "Store" },
     { key: "options", label: "Options" },
     { key: "pay", label: "Pay" },
     { key: "print", label: "Print" },
   ];
   const stepIdx = steps.findIndex((s) => s.key === step);
+
+  const setCopiesSafe = (n: number) => {
+    if (Number.isNaN(n)) return;
+    setCopies(Math.min(120, Math.max(1, Math.floor(n))));
+  };
 
   return (
     <div className="min-h-screen">
@@ -193,8 +163,7 @@ const Index = () => {
             in seconds.
           </h1>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Upload your PDF, pick a store, customize options, scan to pay. Your document
-            prints automatically.
+            Upload your PDF, pick a store, scan to pay. Your document prints automatically.
           </p>
         </div>
 
@@ -279,25 +248,171 @@ const Index = () => {
               <Button
                 className="w-full h-12"
                 disabled={!file}
-                onClick={() => setStep("store")}
+                onClick={() => setStep("options")}
               >
                 Continue <ArrowRight className="size-4" />
               </Button>
             </div>
           )}
 
+          {step === "options" && (
+            <div className="space-y-7">
+              <div>
+                <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
+                  <Settings2 className="size-5 text-primary" /> Print options
+                </h2>
+                <p className="text-sm text-muted-foreground">Choose how you want it printed.</p>
+              </div>
+
+              {/* Binding */}
+              <div className="space-y-3">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Binding</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(Object.keys(BINDING_PRICE) as Binding[]).map((b) => {
+                    const active = binding === b;
+                    return (
+                      <button
+                        key={b}
+                        type="button"
+                        onClick={() => setBinding(b)}
+                        className={`rounded-xl border p-3 text-left transition-all ${
+                          active
+                            ? "border-primary bg-primary/10 glow"
+                            : "border-border bg-card hover:border-primary/40"
+                        }`}
+                      >
+                        <div className="text-sm font-medium">{BINDING_LABEL[b]}</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">+ ₹{BINDING_PRICE[b]}/copy</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Color */}
+              <div className="space-y-3">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Color</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(Object.keys(COLOR_PRICE) as ColorMode[]).map((c) => {
+                    const active = colorMode === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setColorMode(c)}
+                        className={`rounded-xl border p-3 text-left transition-all ${
+                          active
+                            ? "border-primary bg-primary/10 glow"
+                            : "border-border bg-card hover:border-primary/40"
+                        }`}
+                      >
+                        <div className="text-sm font-medium">{COLOR_LABEL[c]}</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">₹{COLOR_PRICE[c]}/copy</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Copies */}
+              <div className="space-y-3">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Number of copies</label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="h-12 w-12"
+                    onClick={() => setCopiesSafe(copies - 1)}
+                    disabled={copies <= 1}
+                  >
+                    <Minus className="size-4" />
+                  </Button>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={120}
+                    value={copies}
+                    onChange={(e) => setCopiesSafe(parseInt(e.target.value, 10))}
+                    className="h-12 text-center font-mono text-lg"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="h-12 w-12"
+                    onClick={() => setCopiesSafe(copies + 1)}
+                    disabled={copies >= 120}
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Min 1 · Max 120</p>
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-3">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Mobile number for updates</label>
+                <Input
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="10-digit mobile"
+                  maxLength={10}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                  className="h-12"
+                />
+                <p className="text-[11px] text-muted-foreground">We'll text you when payment is received and when your print is ready.</p>
+              </div>
+
+              {/* Total */}
+              <div className="rounded-xl border border-border/60 bg-secondary/40 p-4 flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-muted-foreground">Estimated total</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    (₹{COLOR_PRICE[colorMode]} + ₹{BINDING_PRICE[binding]}) × {copies}
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-gradient-primary">₹{totalRupees}</div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="secondary" className="h-12" onClick={() => setStep("upload")}>
+                  <ArrowLeft className="size-4" />
+                </Button>
+                <Button className="flex-1 h-12" onClick={() => {
+                  if (!/^\d{10}$/.test(phone)) { toast.error("Enter a valid 10-digit mobile"); return; }
+                  setStep("store");
+                }}>
+                  Continue <ArrowRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* STEP 2: STORE SELECTION */}
           {step === "store" && (
             <div className="space-y-6">
-              <StoreSelector
-                onSelectStore={(store) => {
-                  setSelectedStore(store);
-                  setStep("options");
-                }}
-                selectedStoreId={selectedStore?.id}
-              />
+              <div>
+                <h2 className="text-xl font-semibold mb-1">Select a store</h2>
+                <p className="text-sm text-muted-foreground">Enter the unique ID shown at the print counter.</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Store UID</label>
+                <div className="relative">
+                  <Store className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Input
+                    value={storeUid}
+                    onChange={(e) => setStoreUid(e.target.value.toUpperCase())}
+                    placeholder="e.g. PB-1024"
+                    className="pl-9 h-12 font-mono tracking-wider"
+                    maxLength={20}
+                  />
+                </div>
+              </div>
               <div className="flex gap-3">
-                <Button variant="secondary" className="h-12" onClick={() => setStep("upload")}>
+                <Button variant="secondary" className="h-12" onClick={() => setStep("options")}>
                   <ArrowLeft className="size-4" />
                 </Button>
               </div>
@@ -321,8 +436,8 @@ const Index = () => {
                 </Button>
                 <Button
                   className="flex-1 h-12"
-                  onClick={handleCreateOrder}
-                  disabled={uploading}
+                  disabled={storeUid.trim().length < 3 || uploading}
+                  onClick={handleSubmitOrder}
                 >
                   {uploading ? (
                     <>
@@ -363,23 +478,25 @@ const Index = () => {
               />
 
               <div className="flex justify-center">
-                <div className="p-6 bg-foreground rounded-2xl">
-                  <div className="size-56 grid place-items-center bg-background rounded-lg relative overflow-hidden">
-                    <QrCode className="size-48 text-foreground" strokeWidth={1} />
-                    <div className="absolute inset-0 grid place-items-center">
-                      <div className="size-12 rounded-lg bg-gradient-to-br from-primary to-accent grid place-items-center glow">
-                        <Printer className="size-6 text-primary-foreground" />
+                {storeQrUrl ? (
+                  <div className="p-4 bg-foreground rounded-2xl">
+                    <img src={storeQrUrl} alt="Store payment QR" className="size-56 rounded-lg bg-background object-contain" />
+                  </div>
+                ) : (
+                  <div className="p-6 bg-foreground rounded-2xl">
+                    <div className="size-56 grid place-items-center bg-background rounded-lg relative overflow-hidden">
+                      <QrCode className="size-48 text-foreground" strokeWidth={1} />
+                      <div className="absolute inset-0 grid place-items-center">
+                        <div className="size-12 rounded-lg bg-gradient-to-br from-primary to-accent grid place-items-center glow">
+                          <Printer className="size-6 text-primary-foreground" />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
-
               <div className="text-center text-sm text-muted-foreground">
-                Amount:
-                <span className="text-foreground font-semibold block mt-1">
-                  ₹{calculateTotal(pageCount, printType, quantity).toFixed(2)}
-                </span>
+                Amount: <span className="text-foreground font-semibold">₹10.00</span>
               </div>
 
               <div className="flex gap-3">
@@ -405,7 +522,7 @@ const Index = () => {
                       if (error) throw error;
                       if (data?.status === "paid") {
                         toast.success("Payment confirmed — sending to printer");
-                        setStep("print");
+                        setStep("done");
                       } else {
                         toast.error("Payment not confirmed yet. Please complete payment.");
                       }
@@ -444,35 +561,20 @@ const Index = () => {
                   Pick it up at the counter within 30 minutes.
                 </p>
               </div>
-
-              <OrderSummary
-                fileName={file?.name || ""}
-                fileSize={file?.size || 0}
-                pageCount={pageCount}
-                printType={printType}
-                quantity={quantity}
-                storeName={selectedStore.name}
-                storeUid={selectedStore.store_uid}
-                pricePerPage={pricePerPage}
-                totalPrice={calculateTotal(pageCount, printType, quantity)}
-                orderId={orderId || undefined}
-                status="printing"
-              />
-
-              {fileUrl && (
-                <a
-                  href={fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-xs text-primary hover:underline"
-                >
-                  View uploaded file ↗
-                </a>
-              )}
-
-              <Button className="w-full h-12" onClick={reset}>
-                Print another
-              </Button>
+              <div className="rounded-xl bg-secondary/60 p-4 text-left text-sm space-y-2">
+                <div className="flex justify-between gap-4"><span className="text-muted-foreground">File</span><span className="font-medium truncate">{file?.name}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Store</span><span className="font-mono">{storeUid}</span></div>
+                {orderId && (
+                  <div className="flex justify-between gap-4"><span className="text-muted-foreground">Order</span><span className="font-mono text-xs truncate">{orderId.slice(0, 8)}</span></div>
+                )}
+                <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className="text-primary font-medium">Printing</span></div>
+                {fileUrl && (
+                  <a href={fileUrl} target="_blank" rel="noreferrer" className="block text-xs text-primary hover:underline pt-2 break-all">
+                    View uploaded file ↗
+                  </a>
+                )}
+              </div>
+              <Button className="w-full h-12" onClick={reset}>Print another</Button>
             </div>
           )}
         </Card>

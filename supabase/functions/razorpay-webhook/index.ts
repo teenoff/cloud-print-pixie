@@ -100,6 +100,20 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      if (newStatus === "paid") {
+        const { data: ord } = await admin.from("orders").select("id")
+          .eq("razorpay_order_id", razorpayOrderId).maybeSingle();
+        if (ord?.id) {
+          try {
+            await fetch(`${SUPABASE_URL}/functions/v1/notify-customer`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE_ROLE}` },
+              body: JSON.stringify({ order_id: ord.id, event: "paid" }),
+            });
+          } catch (e) { console.error("notify failed", e); }
+        }
+      }
     }
 
     return new Response(JSON.stringify({ ok: true }), {
