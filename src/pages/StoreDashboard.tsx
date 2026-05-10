@@ -4,17 +4,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   Settings, Wallet, History, MessageCircle, Printer, MapPin, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered,
 } from "lucide-react";
 import { LiveQueue } from "@/components/store/LiveQueue";
-import { PrintersManager } from "@/components/store/PrintersManager";
-import { PaymentSettings } from "@/components/store/PaymentSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { isValidStoreUid } from "@/lib/storeUid";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
@@ -49,42 +46,22 @@ const StoreDashboard = () => {
       const { data } = await supabase.from("stores").select("*").eq("owner_user_id", user.id).maybeSingle();
       if (!data) { navigate("/store/onboarding", { replace: true }); return; }
       setStore(data);
-      refreshQr(data.qr_image_path);
+      if (data.qr_image_path) {
+        const { data: pub } = supabase.storage.from("store-assets").getPublicUrl(data.qr_image_path);
+        setQrUrl(pub.publicUrl);
+      }
       const { data: ord } = await supabase.from("orders").select("*")
         .eq("store_uid", data.store_uid).order("created_at", { ascending: false });
       setOrders(ord ?? []);
     })();
   }, [user, navigate]);
 
-  const refreshQr = (path: string | null) => {
-    if (!path) { setQrUrl(null); return; }
-    const { data: pub } = supabase.storage.from("store-assets").getPublicUrl(path);
-    setQrUrl(pub.publicUrl + `?t=${Date.now()}`);
-  };
-
-  // Heartbeat — keep last_seen_at fresh while dashboard is open & online
-  useEffect(() => {
-    if (!store?.id || !store.is_online) return;
-    const ping = async () => {
-      await supabase.from("stores").update({ last_seen_at: new Date().toISOString() }).eq("id", store.id);
-    };
-    ping();
-    const t = setInterval(ping, 60_000);
-    return () => clearInterval(t);
-  }, [store?.id, store?.is_online]);
-
-  const toggleOnline = async (next: boolean) => {
-    const { data, error } = await supabase.from("stores")
-      .update({ is_online: next, last_seen_at: next ? new Date().toISOString() : null })
-      .eq("id", store.id).select().single();
-    if (error) return toast.error(error.message);
-    setStore(data); toast.success(next ? "Store is now online" : "Store is offline");
-  };
-
   const signOut = async () => { await supabase.auth.signOut(); navigate("/auth", { replace: true }); };
   const copyUid = () => { if (store) { navigator.clipboard.writeText(store.store_uid); toast.success("UID copied"); } };
 
-  if (!store) return <div className="min-h-screen grid place-items-center"><Loader2 className="size-6 animate-spin text-primary" /></div>;
+  if (!store) {
+    return <div className="min-h-screen grid place-items-center"><Loader2 className="size-6 animate-spin text-primary" /></div>;
+  }
 
   return (
     <SidebarProvider>
@@ -98,7 +75,8 @@ const StoreDashboard = () => {
                   {NAV.map((n) => (
                     <SidebarMenuItem key={n.key}>
                       <SidebarMenuButton onClick={() => setSection(n.key)} isActive={section === n.key}>
-                        <n.icon className="size-4" /><span>{n.label}</span>
+                        <n.icon className="size-4" />
+                        <span>{n.label}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
@@ -115,14 +93,7 @@ const StoreDashboard = () => {
               <StoreIcon className="size-5 text-primary" />
               <span className="font-semibold tracking-tight">{store.name}</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full border border-border/60 bg-secondary/40">
-                <span className={`size-2 rounded-full ${store.is_online ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
-                <span className="text-xs">{store.is_online ? "Online" : "Offline"}</span>
-                <Switch checked={!!store.is_online} onCheckedChange={toggleOnline} />
-              </div>
-              <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5"><LogOut className="size-4" /> Sign out</Button>
-            </div>
+            <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5"><LogOut className="size-4" /> Sign out</Button>
           </header>
 
           <main className="container max-w-3xl py-8 space-y-6">
@@ -137,10 +108,10 @@ const StoreDashboard = () => {
 
             {section === "queue" && <LiveQueue storeUid={store.store_uid} agentToken={store.agent_token} />}
             {section === "profile" && <ProfileSection store={store} onSaved={setStore} />}
-            {section === "payments" && <PaymentSettings store={store} qrUrl={qrUrl} orders={orders} onQrChanged={(p) => { setStore({ ...store, qr_image_path: p }); refreshQr(p); }} />}
+            {section === "payments" && <OrdersList orders={orders.filter((o) => o.status === "paid" || o.razorpay_payment_id)} title="Payments" />}
             {section === "printing" && <OrdersList orders={orders} title="Print jobs" />}
             {section === "whatsapp" && <WhatsAppSection store={store} onSaved={setStore} />}
-            {section === "printer" && <PrinterSection store={store} />}
+            {section === "printer" && <PrinterSection store={store} qrUrl={qrUrl} />}
           </main>
         </div>
       </div>
@@ -152,13 +123,11 @@ function ProfileSection({ store, onSaved }: { store: any; onSaved: (s: any) => v
   const [s, setS] = useState(store);
   const [saving, setSaving] = useState(false);
   const save = async () => {
-    if (!isValidStoreUid(s.store_uid)) return toast.error("UID must be 2-4 letters then 4-14 digits");
     setSaving(true);
     const { data, error } = await supabase.from("stores").update({
-      store_uid: s.store_uid,
       name: s.name, phone: s.phone,
       address_line: s.address_line, road: s.road, area: s.area, city: s.city, pincode: s.pincode,
-      bw_price: s.bw_price, color_price: s.color_price, micro_price: s.micro_price,
+      bw_price: s.bw_price, color_price: s.color_price,
       one_pin_price: s.one_pin_price, tape_price: s.tape_price, spiral_price: s.spiral_price,
     }).eq("id", store.id).select().single();
     setSaving(false);
@@ -170,18 +139,16 @@ function ProfileSection({ store, onSaved }: { store: any; onSaved: (s: any) => v
       <div className="grid grid-cols-2 gap-3">
         <Field label="Store name" value={s.name} onChange={(v) => setS({ ...s, name: v })} />
         <Field label="Phone" value={s.phone} onChange={(v) => setS({ ...s, phone: v })} />
-        <Field label="Store UID" value={s.store_uid} onChange={(v) => setS({ ...s, store_uid: v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 18) })} className="col-span-2" />
         <Field label="Address" value={s.address_line ?? ""} onChange={(v) => setS({ ...s, address_line: v })} className="col-span-2" />
         <Field label="Road" value={s.road ?? ""} onChange={(v) => setS({ ...s, road: v })} />
         <Field label="Area" value={s.area ?? ""} onChange={(v) => setS({ ...s, area: v })} />
         <Field label="City" value={s.city ?? ""} onChange={(v) => setS({ ...s, city: v })} />
         <Field label="Pincode" value={s.pincode ?? ""} onChange={(v) => setS({ ...s, pincode: v })} />
-        <NumField label="B&W ₹/page" value={s.bw_price} onChange={(v) => setS({ ...s, bw_price: v })} />
-        <NumField label="Color ₹/page" value={s.color_price} onChange={(v) => setS({ ...s, color_price: v })} />
-        <NumField label="Micro ₹/page" value={s.micro_price ?? 5} onChange={(v) => setS({ ...s, micro_price: v })} />
-        <NumField label="One pin ₹/copy" value={s.one_pin_price} onChange={(v) => setS({ ...s, one_pin_price: v })} />
-        <NumField label="Tape ₹/copy" value={s.tape_price} onChange={(v) => setS({ ...s, tape_price: v })} />
-        <NumField label="Spiral ₹/copy" value={s.spiral_price} onChange={(v) => setS({ ...s, spiral_price: v })} />
+        <NumField label="B&W ₹" value={s.bw_price} onChange={(v) => setS({ ...s, bw_price: v })} />
+        <NumField label="Color ₹" value={s.color_price} onChange={(v) => setS({ ...s, color_price: v })} />
+        <NumField label="One pin ₹" value={s.one_pin_price} onChange={(v) => setS({ ...s, one_pin_price: v })} />
+        <NumField label="Tape ₹" value={s.tape_price} onChange={(v) => setS({ ...s, tape_price: v })} />
+        <NumField label="Spiral ₹" value={s.spiral_price} onChange={(v) => setS({ ...s, spiral_price: v })} />
       </div>
       <Button onClick={save} disabled={saving} className="w-full h-11">
         {saving ? <Loader2 className="size-4 animate-spin" /> : "Save changes"}
@@ -199,8 +166,9 @@ function WhatsAppSection({ store, onSaved }: { store: any; onSaved: (s: any) => 
   return (
     <Card className="p-6 space-y-4">
       <h3 className="font-semibold flex items-center gap-2"><MessageCircle className="size-4 text-primary" /> Connect WhatsApp</h3>
+      <p className="text-sm text-muted-foreground">Customers can message your store directly.</p>
       <div className="flex gap-2">
-        <Input value={num} onChange={(e) => setNum(e.target.value)} placeholder="WhatsApp number with country code" />
+        <Input value={num} onChange={(e) => setNum(e.target.value)} placeholder="WhatsApp number with country code, e.g. 919876543210" />
         <Button onClick={save}>Save</Button>
       </div>
       {num && (
@@ -212,36 +180,40 @@ function WhatsAppSection({ store, onSaved }: { store: any; onSaved: (s: any) => 
   );
 }
 
-function PrinterSection({ store }: { store: any }) {
+function PrinterSection({ store, qrUrl }: { store: any; qrUrl: string | null }) {
   const mapsUrl = useMemo(() => {
-    if (store.latitude && store.longitude)
+    if (store.latitude && store.longitude) {
       return `https://www.google.com/maps/dir/?api=1&destination=${store.latitude},${store.longitude}`;
+    }
     const q = [store.address_line, store.road, store.area, store.city, store.pincode].filter(Boolean).join(", ");
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
   }, [store]);
   return (
-    <div className="space-y-4">
-      <Card className="p-6 space-y-4">
-        <h3 className="font-semibold flex items-center gap-2"><Printer className="size-4 text-primary" /> Primary printer</h3>
-        <div className="rounded-xl border border-border/60 bg-secondary/40 p-4">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Connected printer</div>
-          <div className="text-sm font-medium mt-1">{store.printer_name ?? "Not set"}</div>
-        </div>
-        <a href={mapsUrl} target="_blank" rel="noreferrer" className="block">
-          <div className="rounded-xl border border-primary/40 bg-primary/10 p-4 flex items-center gap-3 hover:bg-primary/15 transition-colors">
-            <MapPin className="size-5 text-primary" />
-            <div className="flex-1 min-w-0">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Store location</div>
-              <div className="text-sm font-medium truncate">
-                {[store.address_line, store.road, store.city].filter(Boolean).join(", ") || "Tap for directions"}
-              </div>
+    <Card className="p-6 space-y-5">
+      <h3 className="font-semibold flex items-center gap-2"><Printer className="size-4 text-primary" /> Printer</h3>
+      <div className="rounded-xl border border-border/60 bg-secondary/40 p-4">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground">Connected printer</div>
+        <div className="text-sm font-medium mt-1">{store.printer_name ?? "Not set"}</div>
+      </div>
+      <a href={mapsUrl} target="_blank" rel="noreferrer" className="block">
+        <div className="rounded-xl border border-primary/40 bg-primary/10 p-4 flex items-center gap-3 hover:bg-primary/15 transition-colors">
+          <MapPin className="size-5 text-primary" />
+          <div className="flex-1 min-w-0">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">Store location</div>
+            <div className="text-sm font-medium truncate">
+              {[store.address_line, store.road, store.city].filter(Boolean).join(", ") || "Tap for directions"}
             </div>
-            <span className="text-xs text-primary font-medium">Directions</span>
           </div>
-        </a>
-      </Card>
-      <PrintersManager storeId={store.id} />
-    </div>
+          <span className="text-xs text-primary font-medium">Directions</span>
+        </div>
+      </a>
+      {qrUrl && (
+        <div>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Payment QR</div>
+          <img src={qrUrl} alt="Payment QR" className="size-48 rounded-lg border border-border" />
+        </div>
+      )}
+    </Card>
   );
 }
 
