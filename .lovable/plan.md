@@ -1,81 +1,76 @@
-# Plan: Flow reorder, Micro option, multi-printer, store presence
+# Plan: Accept/Reject flow, QR expiry, real-time tracking, auto refund
 
-## 1. Customer flow reorder
-New order: **Upload → Store → Options → Pay → Print**
-- After upload, jump to a new **Store** step.
-- Store step shows:
-  - "Nearest stores" list (distance-sorted using browser geolocation + store lat/lng)
-  - Active/Inactive badge (green dot if online, grey if offline)
-  - Manual UID entry input ("Enter store code")
-  - Selecting an inactive store is disabled (toast: "Store offline")
-- Customer can change store any time before Pay.
-- Options step shows the **uploaded page count** to the right of the Print/Options header, e.g. `Uploaded pages: 012`.
+## 1. Database
 
-## 2. Store UID format (6–18 chars, 2–4 letters + 4–14 digits)
-- New regex: `^[A-Z]{2,4}[0-9]{4,14}$` (total length 6–18). Drop the `CR-` prefix.
-- Default UID auto-generated from store name initials (2–4 letters) + last 4–14 digits of phone.
-- Owner can customise UID during onboarding and from Profile settings, validated by the same regex.
-- Update DB trigger `validate_store` regex.
-- Update `generateStoreUid()` + `lookupStore()` callers — accept raw UID, no `CR-` prefix.
+Add to `orders`:
+- `qr_expires_at timestamptz` (default `now() + 5 min` on insert)
+- `accepted_at`, `rejected_at timestamptz`
+- `rejection_reason text`
+- `refund_id text`, `refund_status text` (`pending|processed|failed`)
+- extend status check trigger to allow `rejected`, `refunded`
 
-## 3. Color section adds "Micro" + per-page pricing
-- Color modes become: `bw | color | micro` (DB enum-like check + `validate_order_options` update).
-- **All color modes priced per page** for the entire order: `amount = pages × copies × price_per_page`.
-  - Add `micro_price` column to `stores` (default 5).
-  - Customer Options UI: 3 segmented buttons (B&W / Color / Micro) each showing `₹x/page`.
-- Update price calc in `Index.tsx` and store dashboard pricing form.
+Add to `stores`:
+- `auto_accept boolean default false`
 
-## 4. Store presence (online/offline)
-- Add `is_online boolean default false` + `last_seen_at timestamptz` to `stores`.
-- Owner dashboard has an **Online toggle** in header — flips `is_online` and pings `last_seen_at` every 60 s while open.
-- A store is considered active if `is_online = true AND last_seen_at > now()-2 min`.
-- Expose `is_online` via `get_store_by_uid` + a new `list_nearby_stores(lat, lng, radius_km)` SECURITY DEFINER function used by the Store step.
+Trigger: when `orders.status` flips to `paid`, set `qr_expires_at = null`. When flips to `rejected`, enqueue refund (handled in edge function — see §4).
 
-## 5. Permission-denied fix on `is_store_owner`
-- Current `is_store_owner(text)` is SECURITY DEFINER but RLS on `stores` blocks it indirectly. Grant `EXECUTE` to `authenticated, anon` and ensure search_path is set (already is). Re-test with a fresh migration.
+Enable realtime on `orders` (already done) and confirm.
 
-## 6. Store dashboard reshuffle
-- **Printer section** → remove the QR display. Add:
-  - Settings panel
-  - "Add printer" UI (lists printers in a sub-table `store_printers` with `kind ∈ {color, bw, micro}`).
-  - Limits enforced client-side and via trigger: max 6 color, 7 b&w, 5 micro.
-- **Payment history section** → show QR image, plus:
-  - Settings panel
-  - "Change QR" upload
-  - "Download statement" (CSV of paid orders).
+## 2. Customer flow (`src/pages/Index.tsx`)
 
-### New table `store_printers`
-| col | type |
-|---|---|
-| id | uuid pk |
-| store_id | uuid fk → stores |
-| kind | text check (color/bw/micro) |
-| name | text |
-| connection | text (usb/network/manual) |
-| created_at | timestamptz |
+Clean up the file — it currently has two `step === "store"` blocks and references to undefined symbols. Single store step before pay.
 
-Trigger enforces per-kind limits.
+Gating to payment:
+- Before calling `setStep("pay")` in `handleSubmitOrder`, re-run `lookupStore(uid, { silent:true })`. If it fails or store is offline, show inline error card with **Retry** and **Pick another store** buttons; do not advance.
 
-## 7. Files touched
+Pay step additions:
+- 5-minute countdown derived from `order.qr_expires_at`. Display `MM:SS`, color shifts amber <60s, red at 0.
+- On reach 0: call new edge function `refresh-qr` → updates `qr_expires_at = now()+5min`, returns new value. UI re-subscribes.
+- Subscribe via realtime to this order. If `status` becomes `paid` → auto-redirect to `/orders/:id`. If `rejected` → show rejection card with reason, refund status badge, and "Try another store" button (resets flow).
 
-**DB migration** (single file):
-- alter `stores`: add `is_online`, `last_seen_at`, `micro_price`; update `validate_store` regex.
-- alter `orders`: extend `color_mode` validation to include `micro`.
-- create `store_printers` table + RLS + per-kind-limit trigger.
-- update `get_store_by_uid` return cols (`is_online`, `micro_price`).
-- create `list_nearby_stores(lat, lng)` function.
-- `GRANT EXECUTE` on `is_store_owner` to authenticated.
+## 3. Order tracking timeline (`src/pages/OrderTracking.tsx`)
 
-**Frontend**
-- `src/lib/storeUid.ts` — new generator/validator.
-- `src/pages/Index.tsx` — reorder steps, add Store step with nearby list + UID input, page counter, Micro option, per-page pricing.
-- `src/pages/StoreOnboarding.tsx` — customisable UID field, Micro price, drop QR upload from printer step (move to payment-history settings).
-- `src/pages/StoreDashboard.tsx` — Online toggle + heartbeat, restructure Printer & Payments sections, statement CSV download, printers manager.
-- `src/components/store/PrintersManager.tsx` (new).
-- `src/components/store/PaymentSettings.tsx` (new — QR change + statement).
+Already subscribes to UPDATE. Extend stages to include `rejected` branch:
 
-## Out of scope
-- Real printer driver routing per kind (still manual; agent picks the queue).
-- Push notifications for offline → online transitions.
+```text
+pending → paid → printing → done
+                ↘ rejected → refunded
+```
 
-Confirm and I'll implement.
+- Render `rejected`/`refunded` as a separate red branch when present.
+- Show timestamps (`created_at`, `accepted_at`, `printed_at`) under each step.
+- Show live "ETA" / "since X ago" using a 1-sec ticker.
+
+## 4. Store dashboard (`src/components/store/LiveQueue.tsx` + new `IncomingRequests.tsx`)
+
+New "Incoming requests" card listing orders with `status='paid'` and `accepted_at IS NULL`:
+- **Accept** button → `update orders set status='printing', accepted_at=now()`
+- **Reject** button → opens dialog for reason → `update orders set status='rejected', rejected_at=now(), rejection_reason=...` and invokes `refund-order` edge function.
+- Auto-accept toggle in store settings (writes `stores.auto_accept`). When on, a DB trigger on `orders` (status → paid) auto-sets `status='printing', accepted_at=now()` if `stores.auto_accept = true`.
+
+## 5. Edge functions
+
+**`refund-order`** (new, `verify_jwt=false`, validates caller via service role + owner check on store):
+- Input: `{ order_id }`
+- Verifies order is `rejected` and has `razorpay_payment_id`.
+- Calls Razorpay Refunds API (`POST /v1/payments/:id/refund`) with basic auth `RAZORPAY_KEY_ID:RAZORPAY_KEY_SECRET`.
+- Updates `orders.refund_id`, `refund_status='processed'` (or `failed`), `status='refunded'`.
+- Fires `notify-customer` with `event:'rejected_refunded'`.
+- New secrets needed: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` (will request via secrets tool).
+
+**`refresh-qr`** (new, JWT-verified): validates `auth.uid() = orders.user_id`, only allowed when `status='pending'`, sets `qr_expires_at = now() + interval '5 minutes'`, returns the row.
+
+**`razorpay-webhook`**: no change — already moves to `paid`. Auto-accept handled by DB trigger.
+
+**`notify-customer`**: extend to handle `rejected_refunded` event template.
+
+## 6. Out of scope
+
+- Razorpay order/payment creation flow itself (kept as-is; current QR is a static store QR + manual "I've paid").
+- Partial refunds.
+- Push notifications.
+
+## Tech details
+
+- New files: `src/components/store/IncomingRequests.tsx`, `supabase/functions/refund-order/index.ts`, `supabase/functions/refresh-qr/index.ts`, one migration.
+- Edited: `src/pages/Index.tsx` (cleanup + countdown + realtime + gating), `src/pages/OrderTracking.tsx` (rejected branch), `src/pages/StoreDashboard.tsx` (mount IncomingRequests + auto-accept toggle), `supabase/functions/notify-customer/index.ts`.
