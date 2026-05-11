@@ -55,7 +55,9 @@ Deno.serve(async (req) => {
     const phone = order.customer_phone.startsWith("+") ? order.customer_phone : `+91${order.customer_phone}`;
     const msg = event === "paid"
       ? `PrintBeam: Payment of ₹${(order.amount_paise/100).toFixed(0)} received for "${order.file_name}" at ${order.store_uid}. We'll notify you when it's printed.`
-      : `PrintBeam: Your print "${order.file_name}" is ready at ${order.store_uid}. Please collect it.`;
+      : event === "rejected_refunded"
+        ? `PrintBeam: Your order "${order.file_name}" at ${order.store_uid} was rejected. Refund of ₹${(order.amount_paise/100).toFixed(0)} has been initiated.`
+        : `PrintBeam: Your print "${order.file_name}" is ready at ${order.store_uid}. Please collect it.`;
     const result = await sendSms(phone, msg);
     return new Response(JSON.stringify({ ok: true, result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
