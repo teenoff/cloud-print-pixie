@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       orders: {
         Row: {
+          accepted_at: string | null
           amount_paise: number
           binding: string
           color_mode: string
@@ -27,13 +28,19 @@ export type Database = {
           file_url: string
           id: string
           printed_at: string | null
+          qr_expires_at: string | null
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
+          refund_id: string | null
+          refund_status: string | null
+          rejected_at: string | null
+          rejection_reason: string | null
           status: string
           store_uid: string
           user_id: string
         }
         Insert: {
+          accepted_at?: string | null
           amount_paise?: number
           binding?: string
           color_mode?: string
@@ -45,13 +52,19 @@ export type Database = {
           file_url: string
           id?: string
           printed_at?: string | null
+          qr_expires_at?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
+          refund_id?: string | null
+          refund_status?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
           status?: string
           store_uid: string
           user_id: string
         }
         Update: {
+          accepted_at?: string | null
           amount_paise?: number
           binding?: string
           color_mode?: string
@@ -63,8 +76,13 @@ export type Database = {
           file_url?: string
           id?: string
           printed_at?: string | null
+          qr_expires_at?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
+          refund_id?: string | null
+          refund_status?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
           status?: string
           store_uid?: string
           user_id?: string
@@ -118,6 +136,7 @@ export type Database = {
           address_line: string | null
           agent_token: string
           area: string | null
+          auto_accept: boolean
           bw_price: number
           city: string | null
           color_price: number
@@ -146,6 +165,7 @@ export type Database = {
           address_line?: string | null
           agent_token?: string
           area?: string | null
+          auto_accept?: boolean
           bw_price?: number
           city?: string | null
           color_price?: number
@@ -174,6 +194,7 @@ export type Database = {
           address_line?: string | null
           agent_token?: string
           area?: string | null
+          auto_accept?: boolean
           bw_price?: number
           city?: string | null
           color_price?: number
