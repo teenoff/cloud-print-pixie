@@ -106,7 +106,7 @@ const StoreDashboard = () => {
               <Button variant="secondary" size="sm" onClick={copyUid} className="gap-1.5"><Copy className="size-4" /> Copy</Button>
             </Card>
 
-            {section === "queue" && <LiveQueue storeUid={store.store_uid} agentToken={store.agent_token} />}
+            {section === "queue" && <LiveQueue storeUid={store.store_uid} agentToken={store.agent_token} autoAccept={!!store.auto_accept} storeId={store.id} onAutoAcceptChange={(v) => setStore({ ...store, auto_accept: v })} />}
             {section === "profile" && <ProfileSection store={store} onSaved={setStore} />}
             {section === "payments" && <OrdersList orders={orders.filter((o) => o.status === "paid" || o.razorpay_payment_id)} title="Payments" />}
             {section === "printing" && <OrdersList orders={orders} title="Print jobs" />}
