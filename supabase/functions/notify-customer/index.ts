@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const { order_id, event } = await req.json();
-    if (!order_id || !["paid", "printed"].includes(event)) {
+    if (!order_id || !["paid", "printed", "rejected_refunded"].includes(event)) {
       return new Response(JSON.stringify({ error: "bad input" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
