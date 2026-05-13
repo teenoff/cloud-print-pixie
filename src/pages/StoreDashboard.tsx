@@ -36,6 +36,7 @@ const StoreDashboard = () => {
   const [store, setStore] = useState<any>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [togglingOnline, setTogglingOnline] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate("/auth", { replace: true });
