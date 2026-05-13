@@ -61,6 +61,15 @@ const StoreDashboard = () => {
   const signOut = async () => { await supabase.auth.signOut(); navigate("/auth", { replace: true }); };
   const copyUid = () => { if (store) { navigator.clipboard.writeText(store.store_uid); toast.success("UID copied"); } };
 
+  const toggleOnline = async (next: boolean) => {
+    if (!store) return;
+    setTogglingOnline(true);
+    const { data, error } = await supabase.from("stores").update({ is_online: next }).eq("id", store.id).select().single();
+    setTogglingOnline(false);
+    if (error) { toast.error(error.message); }
+    else { setStore(data); toast.success(next ? "Store is now online" : "Store is now offline"); }
+  };
+
   if (!store) {
     return <div className="min-h-screen grid place-items-center"><Loader2 className="size-6 animate-spin text-primary" /></div>;
   }
