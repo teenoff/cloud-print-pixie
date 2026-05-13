@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
-  Settings, Wallet, History, MessageCircle, Printer, MapPin, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered,
+  Settings, Wallet, History, MessageCircle, Printer, MapPin, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered, Wifi, WifiOff,
 } from "lucide-react";
 import { LiveQueue } from "@/components/store/LiveQueue";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +36,7 @@ const StoreDashboard = () => {
   const [store, setStore] = useState<any>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [togglingOnline, setTogglingOnline] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate("/auth", { replace: true });
@@ -58,6 +60,15 @@ const StoreDashboard = () => {
 
   const signOut = async () => { await supabase.auth.signOut(); navigate("/auth", { replace: true }); };
   const copyUid = () => { if (store) { navigator.clipboard.writeText(store.store_uid); toast.success("UID copied"); } };
+
+  const toggleOnline = async (next: boolean) => {
+    if (!store) return;
+    setTogglingOnline(true);
+    const { data, error } = await supabase.from("stores").update({ is_online: next }).eq("id", store.id).select().single();
+    setTogglingOnline(false);
+    if (error) { toast.error(error.message); }
+    else { setStore(data); toast.success(next ? "Store is now online" : "Store is now offline"); }
+  };
 
   if (!store) {
     return <div className="min-h-screen grid place-items-center"><Loader2 className="size-6 animate-spin text-primary" /></div>;
@@ -93,7 +104,19 @@ const StoreDashboard = () => {
               <StoreIcon className="size-5 text-primary" />
               <span className="font-semibold tracking-tight">{store.name}</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5"><LogOut className="size-4" /> Sign out</Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                {store.is_online ? <Wifi className="size-4 text-emerald-500" /> : <WifiOff className="size-4 text-muted-foreground" />}
+                <span className="text-sm font-medium hidden sm:inline">{store.is_online ? "Online" : "Offline"}</span>
+                <Switch
+                  checked={!!store.is_online}
+                  onCheckedChange={toggleOnline}
+                  disabled={togglingOnline}
+                  aria-label="Toggle store online status"
+                />
+              </div>
+              <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5"><LogOut className="size-4" /> Sign out</Button>
+            </div>
           </header>
 
           <main className="container max-w-3xl py-8 space-y-6">
