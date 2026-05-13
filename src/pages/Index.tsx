@@ -389,11 +389,11 @@ const Index = () => {
               </div>
 
               {storeInfo && (
-                <div className="rounded-xl border border-primary/40 bg-primary/10 p-4 space-y-2">
+                <div className={`rounded-xl border p-4 space-y-2 transition-colors ${storeInfo.is_online ? "border-emerald-500/40 bg-emerald-500/5" : "border-destructive/40 bg-destructive/5"}`}>
                   <div className="flex items-center gap-2">
-                    <span className={`size-2 rounded-full ${storeInfo.is_online ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+                    <span className={`size-2.5 rounded-full ${storeInfo.is_online ? "bg-emerald-500 animate-pulse" : "bg-destructive"}`} />
                     <span className="font-semibold">{storeInfo.name}</span>
-                    <Badge variant={storeInfo.is_online ? "default" : "outline"} className="ml-auto">{storeInfo.is_online ? "Active" : "Offline"}</Badge>
+                    <Badge variant={storeInfo.is_online ? "default" : "destructive"} className="ml-auto">{storeInfo.is_online ? "Online · Accepting orders" : "Offline · Not accepting orders"}</Badge>
                   </div>
                   {storeMapsUrl && (
                     <a href={storeMapsUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
@@ -403,6 +403,11 @@ const Index = () => {
                   <div className="text-xs text-muted-foreground">
                     B&W ₹{storeInfo.bw_price}/pg · Color ₹{storeInfo.color_price}/pg · Micro ₹{storeInfo.micro_price}/pg
                   </div>
+                  {!storeInfo.is_online && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="size-3" /> This store is offline. You cannot place orders until it comes back online.
+                    </p>
+                  )}
                 </div>
               )}
 
