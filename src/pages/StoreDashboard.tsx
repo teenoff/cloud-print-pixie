@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,7 @@ const StoreDashboard = () => {
           </header>
 
           <main className="container max-w-3xl py-8 space-y-6">
+            <h1 className="sr-only">{store.name} store dashboard</h1>
             <Card className="p-5 bg-gradient-to-br from-primary/15 to-accent/10 border-primary/30 flex items-center justify-between">
               <div>
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">Store UID</div>
@@ -135,7 +136,7 @@ function ProfileSection({ store, onSaved }: { store: any; onSaved: (s: any) => v
   };
   return (
     <Card className="p-6 space-y-4">
-      <h3 className="font-semibold">Profile settings</h3>
+      <h2 className="font-semibold">Profile settings</h2>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Store name" value={s.name} onChange={(v) => setS({ ...s, name: v })} />
         <Field label="Phone" value={s.phone} onChange={(v) => setS({ ...s, phone: v })} />
@@ -165,7 +166,7 @@ function WhatsAppSection({ store, onSaved }: { store: any; onSaved: (s: any) => 
   };
   return (
     <Card className="p-6 space-y-4">
-      <h3 className="font-semibold flex items-center gap-2"><MessageCircle className="size-4 text-primary" /> Connect WhatsApp</h3>
+      <h2 className="font-semibold flex items-center gap-2"><MessageCircle className="size-4 text-primary" /> Connect WhatsApp</h2>
       <p className="text-sm text-muted-foreground">Customers can message your store directly.</p>
       <div className="flex gap-2">
         <Input value={num} onChange={(e) => setNum(e.target.value)} placeholder="WhatsApp number with country code, e.g. 919876543210" />
@@ -190,7 +191,7 @@ function PrinterSection({ store, qrUrl }: { store: any; qrUrl: string | null }) 
   }, [store]);
   return (
     <Card className="p-6 space-y-5">
-      <h3 className="font-semibold flex items-center gap-2"><Printer className="size-4 text-primary" /> Printer</h3>
+      <h2 className="font-semibold flex items-center gap-2"><Printer className="size-4 text-primary" /> Printer</h2>
       <div className="rounded-xl border border-border/60 bg-secondary/40 p-4">
         <div className="text-xs uppercase tracking-wider text-muted-foreground">Connected printer</div>
         <div className="text-sm font-medium mt-1">{store.printer_name ?? "Not set"}</div>
@@ -220,7 +221,7 @@ function PrinterSection({ store, qrUrl }: { store: any; qrUrl: string | null }) 
 function OrdersList({ orders, title }: { orders: any[]; title: string }) {
   return (
     <Card className="p-6 space-y-3">
-      <h3 className="font-semibold">{title}</h3>
+      <h2 className="font-semibold">{title}</h2>
       {orders.length === 0 && <p className="text-sm text-muted-foreground">No records yet.</p>}
       <div className="divide-y divide-border/60">
         {orders.map((o) => (
@@ -241,18 +242,20 @@ function OrdersList({ orders, title }: { orders: any[]; title: string }) {
 }
 
 function Field({ label, value, onChange, className = "" }: { label: string; value: string; onChange: (v: string) => void; className?: string }) {
+  const id = useId();
   return (
     <div className={`space-y-1.5 ${className}`}>
-      <Label className="text-xs">{label}</Label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} />
+      <Label htmlFor={id} className="text-xs">{label}</Label>
+      <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }
 function NumField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  const id = useId();
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
-      <Input type="number" min={0} value={value} onChange={(e) => onChange(Math.max(0, parseInt(e.target.value || "0", 10)))} className="font-mono" />
+      <Label htmlFor={id} className="text-xs">{label}</Label>
+      <Input id={id} type="number" min={0} value={value} onChange={(e) => onChange(Math.max(0, parseInt(e.target.value || "0", 10)))} className="font-mono" />
     </div>
   );
 }

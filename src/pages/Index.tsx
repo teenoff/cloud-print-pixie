@@ -407,7 +407,7 @@ const Index = () => {
               )}
 
               <div className="flex gap-3">
-                <Button variant="secondary" className="h-12" onClick={() => setStep("upload")}><ArrowLeft className="size-4" /></Button>
+                <Button variant="secondary" className="h-12" aria-label="Back to upload" onClick={() => setStep("upload")}><ArrowLeft className="size-4" /></Button>
                 <Button className="flex-1 h-12" disabled={!storeInfo || !storeInfo.is_online} onClick={() => setStep("options")}>
                   Continue <ArrowRight className="size-4" />
                 </Button>
@@ -456,10 +456,10 @@ const Index = () => {
               <div className="space-y-3">
                 <label className="text-xs uppercase tracking-wider text-muted-foreground">Number of copies</label>
                 <div className="flex items-center gap-2">
-                  <Button type="button" variant="secondary" size="icon" className="h-12 w-12" onClick={() => setCopiesSafe(copies - 1)} disabled={copies <= 1}><Minus className="size-4" /></Button>
+                  <Button type="button" variant="secondary" size="icon" className="h-12 w-12" aria-label="Decrease copies" onClick={() => setCopiesSafe(copies - 1)} disabled={copies <= 1}><Minus className="size-4" /></Button>
                   <Input type="number" inputMode="numeric" min={1} max={120} value={copies}
                     onChange={(e) => setCopiesSafe(parseInt(e.target.value, 10))} className="h-12 text-center font-mono text-lg" />
-                  <Button type="button" variant="secondary" size="icon" className="h-12 w-12" onClick={() => setCopiesSafe(copies + 1)} disabled={copies >= 120}><Plus className="size-4" /></Button>
+                  <Button type="button" variant="secondary" size="icon" className="h-12 w-12" aria-label="Increase copies" onClick={() => setCopiesSafe(copies + 1)} disabled={copies >= 120}><Plus className="size-4" /></Button>
                 </div>
               </div>
 
@@ -497,7 +497,7 @@ const Index = () => {
               )}
 
               <div className="flex gap-3">
-                <Button variant="secondary" className="h-12" onClick={() => setStep("store")}><ArrowLeft className="size-4" /></Button>
+                <Button variant="secondary" className="h-12" aria-label="Back to store" onClick={() => setStep("store")}><ArrowLeft className="size-4" /></Button>
                 <Button className="flex-1 h-12" disabled={uploading} onClick={goToPay}>
                   {uploading ? <><Loader2 className="size-4 animate-spin" /> Preparing…</> : <>Continue to pay <ArrowRight className="size-4" /></>}
                 </Button>
@@ -579,7 +579,7 @@ const Index = () => {
                   </p>
 
                   <div className="flex gap-3">
-                    <Button variant="secondary" className="h-12" onClick={() => setStep("options")}><ArrowLeft className="size-4" /></Button>
+                    <Button variant="secondary" className="h-12" aria-label="Back to options" onClick={() => setStep("options")}><ArrowLeft className="size-4" /></Button>
                     <Button variant="outline" className="flex-1 h-12" onClick={() => orderId && navigate(`/orders/${orderId}`)}>
                       Open tracking <ArrowRight className="size-4" />
                     </Button>

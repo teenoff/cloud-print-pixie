@@ -68,6 +68,7 @@ const OrderTracking = () => {
       <Link to="/" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5">
         <ArrowLeft className="size-4" /> Back
       </Link>
+      <h1 className="sr-only">Print order tracking</h1>
       <Card className="p-6 sm:p-8 space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">

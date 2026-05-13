@@ -50,7 +50,7 @@ export function PrintersManager({ storeId }: { storeId: string }) {
   return (
     <Card className="p-6 space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold flex items-center gap-2"><Printer className="size-4 text-primary" /> Printers</h3>
+        <h2 className="font-semibold flex items-center gap-2"><Printer className="size-4 text-primary" /> Printers</h2>
         <div className="flex gap-2 text-[11px]">
           {(Object.keys(LIMITS) as Kind[]).map((k) => (
             <Badge key={k} variant="outline">{LABEL[k]}: {counts[k]}/{LIMITS[k]}</Badge>

@@ -1,0 +1,16 @@
+# PrintBeam
+
+> Upload a PDF, pick a nearby print store, pay by UPI, and collect your prints in minutes.
+
+PrintBeam connects customers with local print stores. Customers upload PDFs, choose paper size, color or black & white, copies, and binding, then pay with a time-limited UPI QR. Stores manage incoming jobs from a live dashboard with auto-accept, real-time status, and automatic refunds on rejection.
+
+## Pages
+
+- [Home](/): Upload a PDF and place a print order at a nearby store.
+- [Sign in](/auth): Customer and store-owner sign-in.
+- [Store onboarding](/store/onboarding): Set up a new print store.
+
+## Optional
+
+- [Store dashboard](/store/dashboard): Store-owner live queue and settings (auth required).
+- [Order tracking](/orders/:id): Live status of a placed order (auth required).
