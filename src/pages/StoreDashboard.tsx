@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
-  Settings, Wallet, History, MessageCircle, Printer, MapPin, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered,
+  Settings, Wallet, History, MessageCircle, Printer, MapPin, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered, Wifi, WifiOff,
 } from "lucide-react";
 import { LiveQueue } from "@/components/store/LiveQueue";
 import { supabase } from "@/integrations/supabase/client";
