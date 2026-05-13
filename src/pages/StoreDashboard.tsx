@@ -104,7 +104,19 @@ const StoreDashboard = () => {
               <StoreIcon className="size-5 text-primary" />
               <span className="font-semibold tracking-tight">{store.name}</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5"><LogOut className="size-4" /> Sign out</Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                {store.is_online ? <Wifi className="size-4 text-emerald-500" /> : <WifiOff className="size-4 text-muted-foreground" />}
+                <span className="text-sm font-medium hidden sm:inline">{store.is_online ? "Online" : "Offline"}</span>
+                <Switch
+                  checked={!!store.is_online}
+                  onCheckedChange={toggleOnline}
+                  disabled={togglingOnline}
+                  aria-label="Toggle store online status"
+                />
+              </div>
+              <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5"><LogOut className="size-4" /> Sign out</Button>
+            </div>
           </header>
 
           <main className="container max-w-3xl py-8 space-y-6">
