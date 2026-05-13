@@ -222,7 +222,7 @@ const StoreOnboarding = () => {
               <PriceField label="Spiral binding (₹/copy)" value={spiral} onChange={setSpiral} />
             </div>
             <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => setStep(1)} className="h-12"><ArrowLeft className="size-4" /></Button>
+              <Button variant="secondary" aria-label="Back" onClick={() => setStep(1)} className="h-12"><ArrowLeft className="size-4" /></Button>
               <Button className="flex-1 h-12" onClick={() => setStep(3)}>Continue <ArrowRight className="size-4" /></Button>
             </div>
           </>
@@ -250,7 +250,7 @@ const StoreOnboarding = () => {
               <p className="text-[11px] text-muted-foreground">You can add up to 6 colour, 7 B&W and 5 micro printers from the dashboard. Upload your payment QR from the Payment History section.</p>
             </div>
             <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => setStep(2)} className="h-12"><ArrowLeft className="size-4" /></Button>
+              <Button variant="secondary" aria-label="Back" onClick={() => setStep(2)} className="h-12"><ArrowLeft className="size-4" /></Button>
               <Button className="flex-1 h-12" onClick={submit} disabled={submitting}>
                 {submitting ? <><Loader2 className="size-4 animate-spin" /> Creating…</> : <>Create store <ArrowRight className="size-4" /></>}
               </Button>

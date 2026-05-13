@@ -45,7 +45,7 @@ export function PaymentSettings({
   return (
     <div className="space-y-4">
       <Card className="p-6 space-y-4">
-        <h3 className="font-semibold flex items-center gap-2"><QrCode className="size-4 text-primary" /> Payment QR</h3>
+        <h2 className="font-semibold flex items-center gap-2"><QrCode className="size-4 text-primary" /> Payment QR</h2>
         {qrUrl ? <img src={qrUrl} alt="Store payment QR code" className="size-48 rounded-lg border border-border" /> : <p className="text-sm text-muted-foreground">No QR uploaded.</p>}
         <input ref={fileRef} type="file" accept="image/*" hidden
           onChange={(e) => { const f = e.target.files?.[0]; if (f) changeQr(f); }} />
@@ -60,7 +60,7 @@ export function PaymentSettings({
       </Card>
 
       <Card className="p-6 space-y-3">
-        <h3 className="font-semibold">Payment history</h3>
+        <h2 className="font-semibold">Payment history</h2>
         {paid.length === 0 && <p className="text-sm text-muted-foreground">No payments yet.</p>}
         <div className="divide-y divide-border/60">
           {paid.map((o) => (

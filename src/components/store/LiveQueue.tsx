@@ -115,7 +115,7 @@ export function LiveQueue({
       {/* Incoming requests (require accept/reject) */}
       <Card className="p-6 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Incoming requests</h3>
+          <h2 className="font-semibold">Incoming requests</h2>
           <span className="text-xs text-muted-foreground">{incoming.length} waiting</span>
         </div>
         {incoming.length === 0 && <p className="text-sm text-muted-foreground">No incoming requests.</p>}
@@ -140,7 +140,7 @@ export function LiveQueue({
       {/* Currently printing */}
       <Card className="p-6 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Printing now</h3>
+          <h2 className="font-semibold">Printing now</h2>
           <span className="text-xs text-muted-foreground">{active.length} active</span>
         </div>
         {active.length === 0 && <p className="text-sm text-muted-foreground">No active jobs.</p>}
@@ -164,7 +164,7 @@ export function LiveQueue({
 
       {recent.length > 0 && (
         <Card className="p-6 space-y-3">
-          <h3 className="font-semibold">Recent</h3>
+          <h2 className="font-semibold">Recent</h2>
           <div className="divide-y divide-border/60">
             {recent.map((o) => (
               <div key={o.id} className="py-2 flex items-center justify-between gap-3 text-sm">
