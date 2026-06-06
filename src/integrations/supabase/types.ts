@@ -27,6 +27,10 @@ export type Database = {
           file_size: number
           file_url: string
           id: string
+          print_attempts: number
+          print_failed_at: string | null
+          print_failure_reason: string | null
+          print_max_attempts: number
           printed_at: string | null
           qr_expires_at: string | null
           razorpay_order_id: string | null
@@ -51,6 +55,10 @@ export type Database = {
           file_size: number
           file_url: string
           id?: string
+          print_attempts?: number
+          print_failed_at?: string | null
+          print_failure_reason?: string | null
+          print_max_attempts?: number
           printed_at?: string | null
           qr_expires_at?: string | null
           razorpay_order_id?: string | null
@@ -75,6 +83,10 @@ export type Database = {
           file_size?: number
           file_url?: string
           id?: string
+          print_attempts?: number
+          print_failed_at?: string | null
+          print_failure_reason?: string | null
+          print_max_attempts?: number
           printed_at?: string | null
           qr_expires_at?: string | null
           razorpay_order_id?: string | null
