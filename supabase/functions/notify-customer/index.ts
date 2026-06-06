@@ -37,7 +37,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const { order_id, event } = await req.json();
-    if (!order_id || !["paid", "printed", "rejected_refunded"].includes(event)) {
+    const allowed = ["paid", "printing", "printed", "rejected_refunded", "print_failed"];
+    if (!order_id || !allowed.includes(event)) {
       return new Response(JSON.stringify({ error: "bad input" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -53,15 +54,26 @@ Deno.serve(async (req) => {
       });
     }
     const phone = order.customer_phone.startsWith("+") ? order.customer_phone : `+91${order.customer_phone}`;
-    const msg = event === "paid"
-      ? `PrintBeam: Payment of ₹${(order.amount_paise/100).toFixed(0)} received for "${order.file_name}" at ${order.store_uid}. We'll notify you when it's printed.`
-      : event === "rejected_refunded"
-        ? `PrintBeam: Your order "${order.file_name}" at ${order.store_uid} was rejected. Refund of ₹${(order.amount_paise/100).toFixed(0)} has been initiated.`
-        : `PrintBeam: Your print "${order.file_name}" is ready at ${order.store_uid}. Please collect it.`;
-    const result = await sendSms(phone, msg);
+    const amount = (order.amount_paise / 100).toFixed(0);
+    const messages: Record<string, string> = {
+      paid: `PrintBeam: Payment of ₹${amount} received for "${order.file_name}" at ${order.store_uid}. We'll notify you when it's printed.`,
+      printing: `PrintBeam: Your order "${order.file_name}" at ${order.store_uid} is now being printed.`,
+      printed: `PrintBeam: Your print "${order.file_name}" is ready at ${order.store_uid}. Please collect it.`,
+      rejected_refunded: `PrintBeam: Your order "${order.file_name}" at ${order.store_uid} was rejected. Refund of ₹${amount} has been initiated.`,
+      print_failed: `PrintBeam: Sorry — your print "${order.file_name}" at ${order.store_uid} failed after several attempts. Please contact the store.`,
+    };
+    const result = await sendSms(phone, messages[event]);
     return new Response(JSON.stringify({ ok: true, result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "error";
+    console.error("notify error", msg);
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
   } catch (e) {
     const msg = e instanceof Error ? e.message : "error";
     console.error("notify error", msg);

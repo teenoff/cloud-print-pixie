@@ -56,7 +56,11 @@ export function LiveQueue({
     const { error } = await supabase.from("orders")
       .update({ status: "printing", accepted_at: new Date().toISOString() }).eq("id", id);
     setBusy(null);
-    if (error) toast.error(error.message); else toast.success("Order accepted");
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Order accepted");
+      supabase.functions.invoke("notify-customer", { body: { order_id: id, event: "printing" } }).catch(() => {});
+    }
   };
 
   const reject = async (id: string, reason: string) => {
