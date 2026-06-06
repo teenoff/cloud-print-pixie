@@ -11,6 +11,7 @@ import {
   Settings, Wallet, History, MessageCircle, Printer, MapPin, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered, Wifi, WifiOff,
 } from "lucide-react";
 import { LiveQueue } from "@/components/store/LiveQueue";
+import { ModeToggle } from "@/components/ModeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -115,6 +116,7 @@ const StoreDashboard = () => {
                   aria-label="Toggle store online status"
                 />
               </div>
+              <ModeToggle />
               <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5"><LogOut className="size-4" /> Sign out</Button>
             </div>
           </header>
