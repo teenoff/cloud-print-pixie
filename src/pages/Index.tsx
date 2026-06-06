@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { countPdfPages } from "@/lib/pdfPages";
 import { isValidStoreUid } from "@/lib/storeUid";
+import { ModeToggle } from "@/components/ModeToggle";
 
 type Step = "upload" | "store" | "options" | "pay" | "done";
 type Binding = "one_pin" | "tape" | "spiral";
@@ -268,6 +269,7 @@ const Index = () => {
             <span className="font-semibold tracking-tight text-lg">PrintBeam</span>
           </div>
           <div className="flex items-center gap-3">
+            <ModeToggle />
             <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[160px]">{user?.email}</span>
             <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5">
               <LogOut className="size-4" /> <span className="hidden sm:inline">Sign out</span>
