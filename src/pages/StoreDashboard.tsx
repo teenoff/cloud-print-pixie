@@ -245,12 +245,6 @@ function PrinterSection({ store, qrUrl }: { store: any; qrUrl: string | null }) 
           <span className="text-xs text-primary font-medium">Directions</span>
         </div>
       </a>
-      {qrUrl && (
-        <div>
-          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Payment QR</div>
-          <img src={qrUrl} alt="Payment QR" className="size-48 rounded-lg border border-border" />
-        </div>
-      )}
     </Card>
   );
 }
