@@ -113,7 +113,8 @@ const Index = () => {
     }
     setLookingUp(true); setUidError(null);
     try {
-      const { data, error } = await supabase.rpc("get_store_by_uid", { _uid: uid });
+      const { data: resp, error } = await supabase.functions.invoke("stores-public", { body: { action: "get", uid } });
+      const data = resp?.store ? [resp.store] : [];
       if (error) throw error;
       const row = (data as any[])?.[0];
       if (!row) { setUidError("No store found with this UID"); setStoreInfo(null); setStoreQrUrl(null); return null; }
