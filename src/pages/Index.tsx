@@ -113,7 +113,8 @@ const Index = () => {
     }
     setLookingUp(true); setUidError(null);
     try {
-      const { data, error } = await supabase.rpc("get_store_by_uid", { _uid: uid });
+      const { data: resp, error } = await supabase.functions.invoke("stores-public", { body: { action: "get", uid } });
+      const data = resp?.store ? [resp.store] : [];
       if (error) throw error;
       const row = (data as any[])?.[0];
       if (!row) { setUidError("No store found with this UID"); setStoreInfo(null); setStoreQrUrl(null); return null; }
@@ -150,7 +151,8 @@ const Index = () => {
         navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 });
       }).catch(() => null);
       const lat = pos?.coords.latitude ?? 0, lng = pos?.coords.longitude ?? 0;
-      const { data, error } = await supabase.rpc("list_nearby_stores", { _lat: lat, _lng: lng, _limit: 20 });
+      const { data: resp, error } = await supabase.functions.invoke("stores-public", { body: { action: "nearby", lat, lng, limit: 20 } });
+      const data = resp?.stores ?? [];
       if (error) throw error;
       setNearby((data as Nearby[]) ?? []);
     } catch (e: any) { toast.error(e.message ?? "Could not find nearby stores"); }
@@ -194,7 +196,8 @@ const Index = () => {
         file_url: path, file_name: file.name, file_size: file.size,
         user_id: user.id,
         binding, color_mode: colorMode, copies,
-        amount_paise: amountPaise,
+        pages: Math.max(1, pageCount || 1),
+        amount_paise: amountPaise, // server-side trigger recomputes authoritative value
         customer_phone: phone.replace(/\D/g, "") || null,
       }).select().single();
       if (insErr) throw insErr;

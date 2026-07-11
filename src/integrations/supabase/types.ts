@@ -27,6 +27,7 @@ export type Database = {
           file_size: number
           file_url: string
           id: string
+          pages: number
           print_attempts: number
           print_failed_at: string | null
           print_failure_reason: string | null
@@ -55,6 +56,7 @@ export type Database = {
           file_size: number
           file_url: string
           id?: string
+          pages?: number
           print_attempts?: number
           print_failed_at?: string | null
           print_failure_reason?: string | null
@@ -83,6 +85,7 @@ export type Database = {
           file_size?: number
           file_url?: string
           id?: string
+          pages?: number
           print_attempts?: number
           print_failed_at?: string | null
           print_failure_reason?: string | null
@@ -294,47 +297,7 @@ export type Database = {
       }
     }
     Functions: {
-      get_store_by_uid: {
-        Args: { _uid: string }
-        Returns: {
-          address_line: string
-          area: string
-          bw_price: number
-          city: string
-          color_price: number
-          id: string
-          is_online: boolean
-          last_seen_at: string
-          latitude: number
-          longitude: number
-          micro_price: number
-          name: string
-          one_pin_price: number
-          pincode: string
-          qr_image_path: string
-          road: string
-          spiral_price: number
-          store_uid: string
-          tape_price: number
-        }[]
-      }
       is_store_owner: { Args: { _store_uid: string }; Returns: boolean }
-      list_nearby_stores: {
-        Args: { _lat: number; _limit?: number; _lng: number }
-        Returns: {
-          address_line: string
-          bw_price: number
-          city: string
-          color_price: number
-          distance_km: number
-          is_online: boolean
-          latitude: number
-          longitude: number
-          micro_price: number
-          name: string
-          store_uid: string
-        }[]
-      }
     }
     Enums: {
       [_ in never]: never
