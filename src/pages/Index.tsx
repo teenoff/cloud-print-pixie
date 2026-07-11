@@ -196,7 +196,8 @@ const Index = () => {
         file_url: path, file_name: file.name, file_size: file.size,
         user_id: user.id,
         binding, color_mode: colorMode, copies,
-        amount_paise: amountPaise,
+        pages: Math.max(1, pageCount || 1),
+        amount_paise: amountPaise, // server-side trigger recomputes authoritative value
         customer_phone: phone.replace(/\D/g, "") || null,
       }).select().single();
       if (insErr) throw insErr;
