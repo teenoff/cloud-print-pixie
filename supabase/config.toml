@@ -8,3 +8,7 @@ verify_jwt = false
 
 [functions.notify-customer]
 verify_jwt = false
+
+[functions.stores-public]
+verify_jwt = false
+
