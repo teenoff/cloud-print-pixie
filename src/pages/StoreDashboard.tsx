@@ -216,14 +216,7 @@ function WhatsAppSection({ store, onSaved }: { store: any; onSaved: (s: any) => 
   );
 }
 
-function PrinterSection({ store }: { store: any }) {
-  const mapsUrl = useMemo(() => {
-    if (store.latitude && store.longitude) {
-      return `https://www.google.com/maps/dir/?api=1&destination=${store.latitude},${store.longitude}`;
-    }
-    const q = [store.address_line, store.road, store.area, store.city, store.pincode].filter(Boolean).join(", ");
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
-  }, [store]);
+function PrinterSection({ store, onSaved }: { store: any; onSaved: (s: any) => void }) {
   return (
     <Card className="p-6 space-y-5">
       <h2 className="font-semibold flex items-center gap-2"><Printer className="size-4 text-primary" /> Printer</h2>
@@ -231,18 +224,7 @@ function PrinterSection({ store }: { store: any }) {
         <div className="text-xs uppercase tracking-wider text-muted-foreground">Connected printer</div>
         <div className="text-sm font-medium mt-1">{store.printer_name ?? "Not set"}</div>
       </div>
-      <a href={mapsUrl} target="_blank" rel="noreferrer" className="block">
-        <div className="rounded-xl border border-primary/40 bg-primary/10 p-4 flex items-center gap-3 hover:bg-primary/15 transition-colors">
-          <MapPin className="size-5 text-primary" />
-          <div className="flex-1 min-w-0">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Store location</div>
-            <div className="text-sm font-medium truncate">
-              {[store.address_line, store.road, store.city].filter(Boolean).join(", ") || "Tap for directions"}
-            </div>
-          </div>
-          <span className="text-xs text-primary font-medium">Directions</span>
-        </div>
-      </a>
+      <ProfileSection store={store} onSaved={onSaved} />
     </Card>
   );
 }
