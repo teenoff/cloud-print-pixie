@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
-  Settings, Wallet, History, MessageCircle, Printer, MapPin, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered, Wifi, WifiOff,
+  Wallet, History, MessageCircle, Printer, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered, Wifi, WifiOff,
 } from "lucide-react";
 import { LiveQueue } from "@/components/store/LiveQueue";
 import { PaymentSettings } from "@/components/store/PaymentSettings";
@@ -20,11 +20,10 @@ import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar";
 
-type Section = "queue" | "profile" | "payments" | "printing" | "whatsapp" | "printer";
+type Section = "queue" | "payments" | "printing" | "whatsapp" | "printer";
 
 const NAV: { key: Section; label: string; icon: any }[] = [
   { key: "queue", label: "Live queue", icon: ListOrdered },
-  { key: "profile", label: "Profile settings", icon: Settings },
   { key: "payments", label: "Payment history", icon: Wallet },
   { key: "printing", label: "Printing history", icon: History },
   { key: "whatsapp", label: "Connect WhatsApp", icon: MessageCircle },
@@ -134,7 +133,6 @@ const StoreDashboard = () => {
             </Card>
 
             {section === "queue" && <LiveQueue storeUid={store.store_uid} agentToken={store.agent_token} autoAccept={!!store.auto_accept} storeId={store.id} onAutoAcceptChange={(v) => setStore({ ...store, auto_accept: v })} />}
-            {section === "profile" && <ProfileSection store={store} onSaved={setStore} />}
             {section === "payments" && (
               <PaymentSettings
                 store={store}
@@ -149,7 +147,7 @@ const StoreDashboard = () => {
             )}
             {section === "printing" && <OrdersList orders={orders} title="Print jobs" />}
             {section === "whatsapp" && <WhatsAppSection store={store} onSaved={setStore} />}
-            {section === "printer" && <PrinterSection store={store} />}
+            {section === "printer" && <PrinterSection store={store} onSaved={setStore} />}
           </main>
         </div>
       </div>
@@ -218,14 +216,7 @@ function WhatsAppSection({ store, onSaved }: { store: any; onSaved: (s: any) => 
   );
 }
 
-function PrinterSection({ store }: { store: any }) {
-  const mapsUrl = useMemo(() => {
-    if (store.latitude && store.longitude) {
-      return `https://www.google.com/maps/dir/?api=1&destination=${store.latitude},${store.longitude}`;
-    }
-    const q = [store.address_line, store.road, store.area, store.city, store.pincode].filter(Boolean).join(", ");
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
-  }, [store]);
+function PrinterSection({ store, onSaved }: { store: any; onSaved: (s: any) => void }) {
   return (
     <Card className="p-6 space-y-5">
       <h2 className="font-semibold flex items-center gap-2"><Printer className="size-4 text-primary" /> Printer</h2>
@@ -233,18 +224,7 @@ function PrinterSection({ store }: { store: any }) {
         <div className="text-xs uppercase tracking-wider text-muted-foreground">Connected printer</div>
         <div className="text-sm font-medium mt-1">{store.printer_name ?? "Not set"}</div>
       </div>
-      <a href={mapsUrl} target="_blank" rel="noreferrer" className="block">
-        <div className="rounded-xl border border-primary/40 bg-primary/10 p-4 flex items-center gap-3 hover:bg-primary/15 transition-colors">
-          <MapPin className="size-5 text-primary" />
-          <div className="flex-1 min-w-0">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Store location</div>
-            <div className="text-sm font-medium truncate">
-              {[store.address_line, store.road, store.city].filter(Boolean).join(", ") || "Tap for directions"}
-            </div>
-          </div>
-          <span className="text-xs text-primary font-medium">Directions</span>
-        </div>
-      </a>
+      <ProfileSection store={store} onSaved={onSaved} />
     </Card>
   );
 }
