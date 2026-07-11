@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
-  Settings, Wallet, History, MessageCircle, Printer, MapPin, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered, Wifi, WifiOff,
+  Wallet, History, MessageCircle, Printer, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered, Wifi, WifiOff,
 } from "lucide-react";
 import { LiveQueue } from "@/components/store/LiveQueue";
 import { PaymentSettings } from "@/components/store/PaymentSettings";
