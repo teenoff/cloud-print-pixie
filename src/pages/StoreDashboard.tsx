@@ -149,7 +149,7 @@ const StoreDashboard = () => {
             )}
             {section === "printing" && <OrdersList orders={orders} title="Print jobs" />}
             {section === "whatsapp" && <WhatsAppSection store={store} onSaved={setStore} />}
-            {section === "printer" && <PrinterSection store={store} qrUrl={qrUrl} />}
+            {section === "printer" && <PrinterSection store={store} />}
           </main>
         </div>
       </div>
@@ -218,7 +218,7 @@ function WhatsAppSection({ store, onSaved }: { store: any; onSaved: (s: any) => 
   );
 }
 
-function PrinterSection({ store, qrUrl }: { store: any; qrUrl: string | null }) {
+function PrinterSection({ store }: { store: any }) {
   const mapsUrl = useMemo(() => {
     if (store.latitude && store.longitude) {
       return `https://www.google.com/maps/dir/?api=1&destination=${store.latitude},${store.longitude}`;
@@ -245,12 +245,6 @@ function PrinterSection({ store, qrUrl }: { store: any; qrUrl: string | null }) 
           <span className="text-xs text-primary font-medium">Directions</span>
         </div>
       </a>
-      {qrUrl && (
-        <div>
-          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Payment QR</div>
-          <img src={qrUrl} alt="Payment QR" className="size-48 rounded-lg border border-border" />
-        </div>
-      )}
     </Card>
   );
 }
