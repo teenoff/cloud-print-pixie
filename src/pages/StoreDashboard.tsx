@@ -149,7 +149,7 @@ const StoreDashboard = () => {
             )}
             {section === "printing" && <OrdersList orders={orders} title="Print jobs" />}
             {section === "whatsapp" && <WhatsAppSection store={store} onSaved={setStore} />}
-            {section === "printer" && <PrinterSection store={store} qrUrl={qrUrl} />}
+            {section === "printer" && <PrinterSection store={store} />}
           </main>
         </div>
       </div>
