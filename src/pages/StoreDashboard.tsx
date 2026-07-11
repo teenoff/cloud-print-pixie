@@ -20,11 +20,10 @@ import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar";
 
-type Section = "queue" | "profile" | "payments" | "printing" | "whatsapp" | "printer";
+type Section = "queue" | "payments" | "printing" | "whatsapp" | "printer";
 
 const NAV: { key: Section; label: string; icon: any }[] = [
   { key: "queue", label: "Live queue", icon: ListOrdered },
-  { key: "profile", label: "Profile settings", icon: Settings },
   { key: "payments", label: "Payment history", icon: Wallet },
   { key: "printing", label: "Printing history", icon: History },
   { key: "whatsapp", label: "Connect WhatsApp", icon: MessageCircle },
