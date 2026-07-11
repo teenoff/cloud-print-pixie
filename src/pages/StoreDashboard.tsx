@@ -11,6 +11,7 @@ import {
   Settings, Wallet, History, MessageCircle, Printer, MapPin, Copy, LogOut, Store as StoreIcon, Loader2, ListOrdered, Wifi, WifiOff,
 } from "lucide-react";
 import { LiveQueue } from "@/components/store/LiveQueue";
+import { PaymentSettings } from "@/components/store/PaymentSettings";
 import { ModeToggle } from "@/components/ModeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
