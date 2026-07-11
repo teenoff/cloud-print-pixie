@@ -135,7 +135,18 @@ const StoreDashboard = () => {
 
             {section === "queue" && <LiveQueue storeUid={store.store_uid} agentToken={store.agent_token} autoAccept={!!store.auto_accept} storeId={store.id} onAutoAcceptChange={(v) => setStore({ ...store, auto_accept: v })} />}
             {section === "profile" && <ProfileSection store={store} onSaved={setStore} />}
-            {section === "payments" && <OrdersList orders={orders.filter((o) => o.status === "paid" || o.razorpay_payment_id)} title="Payments" />}
+            {section === "payments" && (
+              <PaymentSettings
+                store={store}
+                qrUrl={qrUrl}
+                orders={orders}
+                onQrChanged={(path) => {
+                  setStore({ ...store, qr_image_path: path });
+                  const { data: pub } = supabase.storage.from("store-assets").getPublicUrl(path);
+                  setQrUrl(pub.publicUrl);
+                }}
+              />
+            )}
             {section === "printing" && <OrdersList orders={orders} title="Print jobs" />}
             {section === "whatsapp" && <WhatsAppSection store={store} onSaved={setStore} />}
             {section === "printer" && <PrinterSection store={store} qrUrl={qrUrl} />}
