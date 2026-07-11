@@ -151,7 +151,8 @@ const Index = () => {
         navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 });
       }).catch(() => null);
       const lat = pos?.coords.latitude ?? 0, lng = pos?.coords.longitude ?? 0;
-      const { data, error } = await supabase.rpc("list_nearby_stores", { _lat: lat, _lng: lng, _limit: 20 });
+      const { data: resp, error } = await supabase.functions.invoke("stores-public", { body: { action: "nearby", lat, lng, limit: 20 } });
+      const data = resp?.stores ?? [];
       if (error) throw error;
       setNearby((data as Nearby[]) ?? []);
     } catch (e: any) { toast.error(e.message ?? "Could not find nearby stores"); }
