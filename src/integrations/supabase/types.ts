@@ -27,6 +27,7 @@ export type Database = {
           file_size: number
           file_url: string
           id: string
+          pages: number
           print_attempts: number
           print_failed_at: string | null
           print_failure_reason: string | null
@@ -55,6 +56,7 @@ export type Database = {
           file_size: number
           file_url: string
           id?: string
+          pages?: number
           print_attempts?: number
           print_failed_at?: string | null
           print_failure_reason?: string | null
@@ -83,6 +85,7 @@ export type Database = {
           file_size?: number
           file_url?: string
           id?: string
+          pages?: number
           print_attempts?: number
           print_failed_at?: string | null
           print_failure_reason?: string | null
@@ -243,8 +246,11 @@ export type Database = {
           city: string | null
           color_price: number | null
           id: string | null
+          is_online: boolean | null
+          last_seen_at: string | null
           latitude: number | null
           longitude: number | null
+          micro_price: number | null
           name: string | null
           one_pin_price: number | null
           pincode: string | null
@@ -261,8 +267,11 @@ export type Database = {
           city?: string | null
           color_price?: number | null
           id?: string | null
+          is_online?: never
+          last_seen_at?: string | null
           latitude?: number | null
           longitude?: number | null
+          micro_price?: number | null
           name?: string | null
           one_pin_price?: number | null
           pincode?: string | null
@@ -279,8 +288,11 @@ export type Database = {
           city?: string | null
           color_price?: number | null
           id?: string | null
+          is_online?: never
+          last_seen_at?: string | null
           latitude?: number | null
           longitude?: number | null
+          micro_price?: number | null
           name?: string | null
           one_pin_price?: number | null
           pincode?: string | null
