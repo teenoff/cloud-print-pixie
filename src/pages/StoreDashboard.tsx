@@ -218,7 +218,7 @@ function WhatsAppSection({ store, onSaved }: { store: any; onSaved: (s: any) => 
   );
 }
 
-function PrinterSection({ store, qrUrl }: { store: any; qrUrl: string | null }) {
+function PrinterSection({ store }: { store: any }) {
   const mapsUrl = useMemo(() => {
     if (store.latitude && store.longitude) {
       return `https://www.google.com/maps/dir/?api=1&destination=${store.latitude},${store.longitude}`;
