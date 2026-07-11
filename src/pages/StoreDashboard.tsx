@@ -133,7 +133,6 @@ const StoreDashboard = () => {
             </Card>
 
             {section === "queue" && <LiveQueue storeUid={store.store_uid} agentToken={store.agent_token} autoAccept={!!store.auto_accept} storeId={store.id} onAutoAcceptChange={(v) => setStore({ ...store, auto_accept: v })} />}
-            {section === "profile" && <ProfileSection store={store} onSaved={setStore} />}
             {section === "payments" && (
               <PaymentSettings
                 store={store}
@@ -148,7 +147,7 @@ const StoreDashboard = () => {
             )}
             {section === "printing" && <OrdersList orders={orders} title="Print jobs" />}
             {section === "whatsapp" && <WhatsAppSection store={store} onSaved={setStore} />}
-            {section === "printer" && <PrinterSection store={store} />}
+            {section === "printer" && <PrinterSection store={store} onSaved={setStore} />}
           </main>
         </div>
       </div>
