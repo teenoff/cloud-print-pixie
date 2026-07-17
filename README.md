@@ -7,11 +7,12 @@
 <table border="0">
  <tr>
     <td>
-      <p align="center"><img src="https://readme-typing-svg.herokuapp.com?font=Righteous&size=35&center=true&vCenter=true&width=500&height=70&duration=4000&lines=Hey+There!+%F0%9F%91%8B;I%27m+SiamBhau+%F0%9F%91%BF;"/>
-      <img width="150" align="center" src="https://komarev.com/ghpvc/?username=dura&label=Profile%20Visitor&color=071A2C&style=for-the-badge" alt="SiamBhau"/>
-      <br>
-      <img width="280" align="center" src="https://github-widgetbox.vercel.app/api/profile?username=siambhau&data=followers,repositories,stars,commits&theme=viridescent"/>
-      </p>
+      <p align="center">
+<img src="https://readme-typing-svg.herokuapp.com?font=Righteous&size=35&center=true&vCenter=true&width=500&height=70&duration=4000&lines=Hey+There!+%F0%9F%91%8B;I%27m+DURA+%F0%9F%91%BF;"/>
+<img width="150" align="center" src="https://komarev.com/ghpvc/?username=dura&label=Profile%20Visitor&color=071A2C&style=for-the-badge" alt="DURA"/>
+<br>
+<img width="280" align="center" src="https://github-widgetbox.vercel.app/api/profile?username=dura&data=followers,repositories,stars,commits&theme=viridescent"/>
+</p>
     </td>
  </tr>
 </table>
