@@ -1,6 +1,7 @@
 <p align="center"><img src="https://raw.githubusercontent.com/khoa083/khoa/main/Khoa_ne/img/Rainbow.gif" width="100%"></p>
 
 <p align="center">
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d0d0d,30:003566,60:0077b6,100:00b4d8&height=240&section=header&text=DURA&fontSize=90&fontColor=ffffff&fontAlignY=38&desc=Python%20Dev%20%7C%20Bot%20Builder%20%7C%20API%20Crafter&descSize=20&descAlignY=58&animation=fadeIn&stroke=00b4d8&strokeWidth=2" />
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d0d0d,30:003566,60:0077b6,100:00b4d8&height=240&section=header&text=SiamBhau&fontSize=90&fontColor=ffffff&fontAlignY=38&desc=Python%20Dev%20%7C%20Bot%20Builder%20%7C%20API%20Crafter&descSize=20&descAlignY=58&animation=fadeIn&stroke=00b4d8&strokeWidth=2" />
 </p>
 
